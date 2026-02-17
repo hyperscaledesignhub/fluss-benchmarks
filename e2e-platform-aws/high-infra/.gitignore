@@ -1,0 +1,17 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+# terraform.tfvars - commented out to allow tracking mandatory terraform.tfvars
+# *.tfvars.backup
+
+# Helm charts (downloaded)
+# helm-charts/fluss/ - commented out to allow tracking mandatory helm charts
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
