@@ -41,7 +41,7 @@ low-infra/
 │   ├── jobs.tf         # Producer and Flink consumer jobs
 │   ├── ecr.tf          # ECR repository for demo app
 │   └── terraform.tfvars.example
-├── helm-charts/        # Helm chart values
+├── helm-charts/        # Benchmark-specific Helm values (official chart from Apache Fluss repo)
 │   └── fluss-values.yaml
 └── manifests/          # Additional Kubernetes manifests (if needed)
 ```
@@ -64,48 +64,56 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### 2. Build and Push Images to ECR
 
-Use the provided script to build and push all images (demo app and Fluss):
+Use the provided script to build and push all images (demo app and Fluss). The Fluss version defaults to `0.9.0-incubating` and can be overridden with `--fluss-version` or `FLUSS_VERSION`.
 
 ```bash
+cd e2e-iot
+
 # Make sure AWS CLI is configured
 aws configure
 
-# Run the push script (it will create ECR repos if they don't exist)
-./push-images-to-ecr.sh
+# Push both images (default Fluss version)
+./push-images-to-ecr.sh --all
+
+# Or specify the Fluss version to pull from Docker Hub and push to ECR
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
 ```
 
 This script will:
 1. Create ECR repositories (if they don't exist)
-2. Build the demo application image (fluss-demo)
+2. Build the demo application image (`fluss-demo`) with Maven dependencies matching `FLUSS_VERSION`
 3. Push demo image to ECR
-4. Pull Apache Fluss image from Docker Hub
-5. Push Fluss image to ECR
+4. Pull `apache/fluss:<version>` from Docker Hub
+5. Push Fluss image to ECR as `:<version>` and `:latest`
 
-After running, the script will display the ECR URLs. These are automatically configured in `terraform/terraform.tfvars` if you're using the default AWS account and region. Otherwise, update `terraform.tfvars` with your ECR URLs.
-
-Alternatively, you can manually build and push:
+After running, set environment variables for deploy (version must match what you pushed):
 
 ```bash
-# Build demo app
-cd ../../demos/demo/fluss_flink_realtime_demo
-mvn clean package
-docker build -t fluss-demo:latest .
+export FLUSS_VERSION=0.9.0-incubating   # same as --fluss-version above
+source e2e-iot/default.env.sh
+```
 
-# Get ECR login
+`default.env.sh` exports `FLUSS_IMAGE_REPO`, `FLUSS_IMAGE_TAG` (from `FLUSS_VERSION`), and other deploy defaults. Update `terraform/terraform.tfvars` `fluss_version` to the same value if using Terraform outputs.
+
+Alternatively, push only the Fluss image:
+
+```bash
+./push-images-to-ecr.sh --fluss-only --fluss-version 0.9.0-incubating
+```
+
+Manual pull/push (replace `VERSION` with your tag, e.g. `0.9.0-incubating`):
+
+```bash
+VERSION=0.9.0-incubating
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 AWS_REGION=us-west-2
 ECR_BASE="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_BASE}
 
-# Tag and push demo image
-docker tag fluss-demo:latest ${ECR_BASE}/fluss-demo:latest
-docker push ${ECR_BASE}/fluss-demo:latest
-
-# Pull, tag, and push Fluss image
-docker pull apache/fluss:0.8.0-incubating
-docker tag apache/fluss:0.8.0-incubating ${ECR_BASE}/fluss:0.8.0-incubating
-docker tag apache/fluss:0.8.0-incubating ${ECR_BASE}/fluss:latest
-docker push ${ECR_BASE}/fluss:0.8.0-incubating
+docker pull apache/fluss:${VERSION}
+docker tag apache/fluss:${VERSION} ${ECR_BASE}/fluss:${VERSION}
+docker tag apache/fluss:${VERSION} ${ECR_BASE}/fluss:latest
+docker push ${ECR_BASE}/fluss:${VERSION}
 docker push ${ECR_BASE}/fluss:latest
 ```
 
@@ -160,7 +168,7 @@ terraform apply
 
 ### Fluss Configuration
 
-The Fluss Helm chart is configured via `helm-charts/fluss-values.yaml`. Key settings:
+Deployments use the **official Apache Fluss Helm chart** from `https://downloads.apache.org/incubator/fluss/helm-chart` (see `k8s/deploy.sh`). Benchmark-specific overrides live in `helm-charts/fluss-values.yaml`. Key settings:
 
 - **Persistence**: 
   - `enable_persistence = false`: Tablet servers write to `/tmp/fluss/data` on the EC2 root volume (gp3)

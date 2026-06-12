@@ -23,17 +23,24 @@ This guide explains how to test the Fluss producer and Flink job locally with th
 ## Prerequisites
 
 1. **Maven** - For building the JAR
-2. **Fluss 0.8.0** - Extracted to `demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating/`
+2. **Fluss** - Extracted to `$FLUSS_HOME/` or `fluss-<version>` under the repo root (default version: `0.9.0-incubating`)
 3. **Flink 1.20.3** (optional) - For running Flink job locally
 4. **Java 11+** - For running Java applications
+
+Set the Fluss version if not using the default:
+
+```bash
+export FLUSS_VERSION=0.9.0-incubating
+export FLUSS_HOME=/path/to/fluss-${FLUSS_VERSION}   # optional
+```
 
 ## Quick Test (Automated)
 
 Run the automated test script:
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS
-./demos/demo/fluss_flink_realtime_demo/test-local.sh
+cd e2e-iot/fluss_flink_realtime
+./test-local.sh
 ```
 
 This script will:
@@ -48,14 +55,14 @@ This script will:
 ### Step 1: Build the JAR
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS
-mvn -pl demos/demo/fluss_flink_realtime_demo -am clean package
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
+mvn -f benchmark/e2e-platform-aws/fluss_flink_realtime/pom.xml clean package
 ```
 
 ### Step 2: Start Fluss Local Cluster
 
 ```bash
-cd demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating
+cd $FLUSS_HOME
 ./bin/local-cluster.sh start
 ```
 
@@ -68,12 +75,12 @@ nc -z localhost 9123
 ### Step 3: Create Table with 48 Buckets
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
 java --add-opens=java.base/java.util=ALL-UNNAMED \
      --add-opens=java.base/java.lang=ALL-UNNAMED \
      --add-opens=java.base/java.nio=ALL-UNNAMED \
      --add-opens=java.base/java.time=ALL-UNNAMED \
-     -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+     -cp target/fluss-flink-realtime-demo.jar \
      org.apache.fluss.benchmark.e2eplatformaws.setup.CreateTableWithBuckets \
      localhost:9123 iot sensor_readings 48 true
 ```
@@ -86,7 +93,7 @@ java --add-opens=java.base/java.util=ALL-UNNAMED \
      --add-opens=java.base/java.lang=ALL-UNNAMED \
      --add-opens=java.base/java.nio=ALL-UNNAMED \
      --add-opens=java.base/java.time=ALL-UNNAMED \
-     -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+     -cp target/fluss-flink-realtime-demo.jar \
      org.apache.fluss.benchmark.e2eplatformaws.producer.FlussSensorProducerAppMultiInstance \
      --bootstrap localhost:9123 \
      --database iot \
@@ -97,7 +104,7 @@ java --add-opens=java.base/java.util=ALL-UNNAMED \
      --rate 10000 \
      --writer-threads 4 \
      --flush 10000 \
-     --stats 50000
+     --stats-interval 10
 ```
 
 **Multiple instances (4 instances, 25K devices each):**
@@ -108,7 +115,7 @@ java --add-opens=java.base/java.util=ALL-UNNAMED \
      --add-opens=java.base/java.lang=ALL-UNNAMED \
      --add-opens=java.base/java.nio=ALL-UNNAMED \
      --add-opens=java.base/java.time=ALL-UNNAMED \
-     -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+     -cp target/fluss-flink-realtime-demo.jar \
      org.apache.fluss.benchmark.e2eplatformaws.producer.FlussSensorProducerAppMultiInstance \
      --bootstrap localhost:9123 \
      --database iot \
@@ -144,13 +151,12 @@ Terminal 4 (Instance 3):
 
 ```bash
 # Start Flink cluster (if not running)
-cd /Users/vijayabhaskarv/IOT/FLUSS/flink-1.20.3
-./bin/start-cluster.sh
+$FLINK_HOME/bin/start-cluster.sh
 
-# Submit Flink job
-./bin/flink run \
+# Submit Flink job (run from benchmark/e2e-platform-aws/fluss_flink_realtime)
+$FLINK_HOME/bin/flink run \
     -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
-    /Users/vijayabhaskarv/IOT/FLUSS/demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+    target/fluss-flink-realtime-demo.jar \
     --bootstrap localhost:9123 \
     --database iot \
     --table sensor_readings \
@@ -169,7 +175,7 @@ java --add-opens=java.base/java.util=ALL-UNNAMED \
      --add-opens=java.base/java.lang=ALL-UNNAMED \
      --add-opens=java.base/java.nio=ALL-UNNAMED \
      --add-opens=java.base/java.time=ALL-UNNAMED \
-     -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+     -cp target/fluss-flink-realtime-demo.jar \
      org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableLogPeek localhost:9123 iot sensor_readings 10
 ```
 
@@ -189,7 +195,7 @@ The producer writes only these 8 fields to Fluss:
 - `status` (INT)
 - `timestamp` (BIGINT)
 
-The Flink job reads these fields and adds default values for remaining fields at the sink level, matching JDBCFlinkConsumer.java behavior.
+The Flink job reads these fields and adds default values for the remaining full sensor schema fields at the sink.
 
 ## Cleanup
 
@@ -197,11 +203,11 @@ The Flink job reads these fields and adds default values for remaining fields at
 # Stop producer (Ctrl+C or kill PID)
 
 # Stop Flink cluster
-cd /Users/vijayabhaskarv/IOT/FLUSS/flink-1.20.3
+cd $FLINK_HOME
 ./bin/stop-cluster.sh
 
 # Stop Fluss cluster
-cd demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating
+cd $FLUSS_HOME
 ./bin/local-cluster.sh stop
 ```
 

@@ -21,60 +21,67 @@
 Working directory for all commands:
 
 ```
-cd /Users/vijayabhaskarv/IOT/FLUSS
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
 ```
 
 ## 1. Build the demo jar
 
 ```
-mvn -pl demos/demo/fluss_flink_realtime_demo -am clean package
+mvn -f pom.xml clean package
 ```
 
 Output artifact:
 ```
-demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar
+target/fluss-flink-realtime-demo.jar
 ```
 
-## 2. Start / stop Fluss 0.8.0 local cluster
+## 2. Start / stop Fluss local cluster
+
+Default version is `0.9.0-incubating`. Set `FLUSS_VERSION` and point `FLUSS_HOME` at the extracted directory:
+
+```bash
+export FLUSS_VERSION=0.9.0-incubating
+export FLUSS_HOME=/path/to/fluss-${FLUSS_VERSION}
+```
 
 Start:
 ```
-fluss-0.8.0-incubating/bin/local-cluster.sh start
+$FLUSS_HOME/bin/local-cluster.sh start
 ```
 
 Stop:
 ```
-fluss-0.8.0-incubating/bin/local-cluster.sh stop
+$FLUSS_HOME/bin/local-cluster.sh stop
 ```
 
 ## 3. Producer commands
 
 Continuous stream (Ctrl+C to stop):
 ```
-java -jar demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -jar target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 \
   --database iot \
   --table sensor_readings \
   --buckets 12 \
   --rate 2000 \
   --flush 5000 \
-  --stats 20000   # log throughput every 20k records (optional)
+  --stats-interval 10   # log throughput every 10 seconds (optional)
 ```
 
 Limit by count or duration:
 ```
-java -jar demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -jar target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 --database iot --table sensor_readings --count 50000
 
-java -jar demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -jar target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 --database iot --table sensor_readings --duration 5M
 ```
-Add `--stats <records>` to control how often the producer logs overall/windowed throughput.
+Add `--stats-interval <seconds>` (or env `PRODUCER_STATS_INTERVAL_SECONDS`) to control how often the producer logs overall/windowed throughput.
 
 ## 4. Flink SQL client (metadata check)
 
 ```
-flink-1.20.3/bin/sql-client.sh -e "CREATE CATALOG fluss WITH ('type'='fluss','bootstrap.servers'='localhost:9123'); \
+$FLINK_HOME/bin/sql-client.sh -e "CREATE CATALOG fluss WITH ('type'='fluss','bootstrap.servers'='localhost:9123'); \
   USE CATALOG fluss; SHOW DATABASES;"
 ```
 
@@ -82,12 +89,12 @@ flink-1.20.3/bin/sql-client.sh -e "CREATE CATALOG fluss WITH ('type'='fluss','bo
 
 ### List databases / tables
 ```
-java -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -cp target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123
 ```
 Optional single database:
 ```
-java -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -cp target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123 iot
 ```
 
@@ -95,7 +102,7 @@ java -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.j
 
 ```
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  -cp target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableLogPeek localhost:9123 iot sensor_readings 5
 ```
 (Change `5` to print more/less records.)
@@ -104,7 +111,7 @@ java --add-opens=java.base/java.nio=ALL-UNNAMED \
 
 ```
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  -cp target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussPrimaryKeySnapshotPeek localhost:9123 iot sensor_readings 5
 ```
 (Reads current table snapshot; only supports non-partitioned primary-key tables.)
@@ -113,8 +120,8 @@ java --add-opens=java.base/java.nio=ALL-UNNAMED \
 
 (Requires Flink cluster running in `flink-1.20.3`)
 ```
-flink-1.20.3/bin/flink run \
+$FLINK_HOME/bin/flink run \
   -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
-  demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 --database iot --table sensor_readings --window-minutes 1
 ```

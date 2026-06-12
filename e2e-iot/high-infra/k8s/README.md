@@ -37,23 +37,39 @@ k8s/
 1. EKS cluster created via Terraform (see `../terraform/`)
 2. `kubectl` configured to access the cluster
 3. `helm` installed
-4. Docker images pushed to ECR (or accessible registry)
+4. Docker images pushed to ECR for your Fluss version (default `0.9.0-incubating`)
+
+### Fluss version
+
+Push and deploy must use the same version:
+
+```bash
+cd e2e-iot
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+export FLUSS_VERSION=0.9.0-incubating
+source ./default.env.sh
+```
+
+`deploy.sh` uses `FLUSS_IMAGE_TAG` (from `FLUSS_VERSION`) when `FLUSS_IMAGE_REPO` has no inline tag.
 
 ## Deployment
 
 ### Quick Deploy
 
 ```bash
-cd aws-deploy-fluss/low-infra/k8s
-./deploy.sh fluss <demo-image-repo> <demo-image-tag> <fluss-image-repo>
+cd e2e-iot
+source ./default.env.sh
+cd high-infra/k8s
+./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```
 
-Example:
+Example (manual values):
 ```bash
+export FLUSS_VERSION=0.9.0-incubating
 ./deploy.sh fluss \
   123456789012.dkr.ecr.us-west-2.amazonaws.com/fluss-demo \
   latest \
-  123456789012.dkr.ecr.us-west-2.amazonaws.com/fluss:0.8.0-incubating
+  123456789012.dkr.ecr.us-west-2.amazonaws.com/fluss
 ```
 
 ### Manual Deploy
@@ -69,9 +85,12 @@ Example:
    kubectl wait --for=condition=ready pod -l app=zookeeper -n fluss --timeout=120s
    ```
 
-3. **Deploy Fluss via Helm:**
+3. **Deploy Fluss via Helm** (official chart from Apache Fluss):
    ```bash
-   helm upgrade --install fluss ../helm-charts/fluss \
+   helm repo add fluss https://downloads.apache.org/incubator/fluss/helm-chart
+   helm repo update
+   helm upgrade --install fluss fluss/fluss \
+     --version 0.9.0-incubating \
      --namespace fluss \
      --set image.repository="<fluss-image-repo>" \
      --set image.tag="<fluss-image-tag>" \

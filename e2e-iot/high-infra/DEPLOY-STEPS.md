@@ -26,14 +26,35 @@ This document describes the step-by-step deployment process for the Fluss high-i
 - `kubectl` configured and connected to the EKS cluster
 - `helm` installed
 - AWS CLI configured with appropriate permissions
-- ECR images pushed (fluss, fluss-demo)
+- ECR images pushed (fluss, fluss-demo) for your chosen Fluss version
+
+### Fluss version and environment
+
+Default Fluss version is `0.9.0-incubating`. Push and deploy must use the same version.
+
+```bash
+cd e2e-iot
+
+# Push images (pulls apache/fluss:<version> → ECR)
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+
+# Set env for deploy (FLUSS_IMAGE_TAG defaults to FLUSS_VERSION)
+export FLUSS_VERSION=0.9.0-incubating
+source ./default.env.sh
+```
+
+| Variable | Purpose |
+|----------|---------|
+| `FLUSS_VERSION` | Fluss release tag (default `0.9.0-incubating`) |
+| `FLUSS_IMAGE_TAG` | Image tag used by Helm deploy (defaults to `FLUSS_VERSION`) |
+| `FLUSS_IMAGE_REPO` | ECR repo URL without tag (from `default.env.sh`) |
 
 ## Step 1: Update Kubeconfig
 
 After Terraform deployment, update your kubeconfig to connect to the EKS cluster:
 
 ```bash
-cd aws-deploy-fluss/high-infra/terraform
+cd e2e-iot/high-infra/terraform
 aws eks update-kubeconfig --region us-west-2 --name fluss-eks-cluster
 
 # Verify connection
@@ -45,7 +66,7 @@ kubectl cluster-info
 Configure local NVMe storage for Fluss tablet servers:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/storage
+cd e2e-iot/high-infra/k8s/storage
 ./setup-local-storage.sh
 ```
 
@@ -65,13 +86,11 @@ kubectl get pv -l component=tablet-server
 Deploy ZooKeeper, Fluss, Flink, and Monitoring stack:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s
+cd e2e-iot/high-infra/k8s
 
-# Deploy with ECR images
-./deploy.sh fluss \
-  343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss-demo \
-  latest \
-  343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss
+# Deploy with ECR images (source default.env.sh first so FLUSS_IMAGE_TAG is set)
+source ../../default.env.sh
+./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```
 
 **What gets deployed:**
@@ -113,7 +132,7 @@ Deploy 8 producer instances (2 per node across 4 producer nodes) with 128 bucket
 ### Option 1: Use Multi-Instance Script (Recommended)
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/jobs
+cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
 
 # Deploy 8 producer instances with 128 buckets
 export BUCKETS=128
@@ -145,7 +164,7 @@ export BUCKETS=128
 ### Option 2: Use Multi-Instance Script with Custom Parameters
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/jobs
+cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
 
 # Deploy 8 producer instances with custom parameters
 export BUCKETS=128
@@ -190,7 +209,7 @@ kubectl port-forward -n fluss svc/fluss-producer-metrics 8080:8080
 Submit the Flink job that processes sensor data:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/flink
+cd benchmark/e2e-platform-aws/high-infra/k8s/flink
 ./submit-job-from-image.sh
 ```
 
@@ -224,7 +243,7 @@ kubectl logs -n fluss -l app=flink,component=taskmanager -f
 Deploy the Grafana dashboard for monitoring:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/monitoring
+cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
 ./deploy-dashboard.sh
 ```
 
@@ -330,7 +349,7 @@ kubectl logs -n fluss -l app.kubernetes.io/component=tablet-server --tail=20
   ```
 - If JAR is missing, rebuild and push the image:
   ```bash
-  cd aws-deploy-fluss/high-infra/k8s/flink
+  cd benchmark/e2e-platform-aws/high-infra/k8s/flink
   ./build-and-push.sh
   ```
 - Then restart Flink pods to pull the new image
@@ -415,11 +434,11 @@ kubectl logs -n fluss -l app.kubernetes.io/component=tablet-server -f
 ```bash
 # Restart producer (using optimal configuration)
 kubectl delete job -n fluss fluss-producer
-cd aws-deploy-fluss/high-infra/k8s/jobs
+cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
 ./deploy-producer-optimal.sh
 
 # Restart Flink job
-cd aws-deploy-fluss/high-infra/k8s/flink
+cd benchmark/e2e-platform-aws/high-infra/k8s/flink
 ./submit-job-from-image.sh
 ```
 
@@ -436,7 +455,7 @@ kubectl port-forward -n fluss svc/flink-jobmanager 8081:8081
 # Visit http://localhost:8081 and cancel job
 
 # Delete all components
-cd aws-deploy-fluss/high-infra/k8s
+cd benchmark/e2e-platform-aws/high-infra/k8s
 kubectl delete -f flink/
 kubectl delete -f zookeeper/
 helm uninstall fluss -n fluss

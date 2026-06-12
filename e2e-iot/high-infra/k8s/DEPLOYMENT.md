@@ -26,14 +26,21 @@ This guide walks through deploying the entire Fluss + Flink stack on AWS EKS.
 2. **Terraform** installed (>= 1.0)
 3. **kubectl** installed and configured
 4. **helm** installed (>= 3.0)
-5. **Docker images** built and pushed to ECR:
-   - Fluss image: `fluss:0.8.0-incubating`
+5. **Docker images** built and pushed to ECR for your Fluss version (default `0.9.0-incubating`):
+   - Fluss image: `fluss:<FLUSS_VERSION>` (e.g. `fluss:0.9.0-incubating`)
    - Demo image: `fluss-demo:latest` (contains producer and Flink job JAR)
+
+```bash
+cd e2e-iot
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+export FLUSS_VERSION=0.9.0-incubating
+source ./default.env.sh
+```
 
 ## Step 1: Create EKS Cluster and Node Groups
 
 ```bash
-cd aws-deploy-fluss/low-infra/terraform
+cd e2e-iot/high-infra/terraform
 
 # Initialize Terraform
 terraform init
@@ -75,16 +82,14 @@ kubectl get nodes
 ## Step 3: Deploy All Kubernetes Resources
 
 ```bash
-cd aws-deploy-fluss/low-infra/k8s
+cd e2e-iot
 
-# Get ECR repository URLs from Terraform outputs
-cd ../terraform
-DEMO_IMAGE_REPO=$(terraform output -raw ecr_repository_url)
-FLUSS_IMAGE_REPO=$(terraform output -raw ecr_fluss_repository_url)
+# After push-images-to-ecr.sh, load ECR repos and Fluss version
+export FLUSS_VERSION=0.9.0-incubating
+source ./default.env.sh
 
-# Deploy everything
-cd ../k8s
-./deploy.sh fluss "${DEMO_IMAGE_REPO}" latest "${FLUSS_IMAGE_REPO}"
+cd high-infra/k8s
+./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```
 
 The deployment script will:
@@ -120,10 +125,10 @@ kubectl get pvc -n fluss
 kubectl get pods -n fluss -l app=fluss,component=tablet-server -o wide
 
 # Verify mount paths inside tablet server pods
-kubectl exec -n fluss <tablet-server-pod-name> -- df -h | grep alldata
+kubectl exec -n fluss <tablet-server-pod-name> -- df -h /tmp/fluss/data
 
-# Check that data directory exists on NVMe
-kubectl exec -n fluss <tablet-server-pod-name> -- ls -la /opt/alldata/fluss/
+# Check PVCs are bound
+kubectl get pvc -n fluss
 ```
 
 ### Verify NVMe drives are mounted on nodes:
@@ -139,17 +144,17 @@ done
 ```
 
 **Expected Results:**
-- PVs should show `path: /opt/alldata/fluss/data`
-- Tablet server pods should have volumes mounted at `/opt/alldata/fluss`
+- PVs should show `path: /opt/alldata/fluss/data` (on the node)
+- PVCs `data-tablet-server-*` should be `Bound` to those PVs
+- Tablet server pods mount storage at `/tmp/fluss/data` (Fluss `data.dir`)
 - Nodes should show NVMe drives mounted at `/opt/alldata`
-- Data directory should exist: `/opt/alldata/fluss/data`
 
 ## Step 5: Deploy Multi-Instance Producer
 
 Deploy 8 producer instances (2 per node across 4 producer nodes) with 128 buckets:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/jobs
+cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
 
 # Deploy multi-instance producer (8 instances total, 2 per node, 128 buckets)
 export BUCKETS=128
@@ -182,7 +187,7 @@ kubectl logs -n fluss -l app=fluss-producer --tail=50
 Submit the Flink aggregator job:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/flink
+cd benchmark/e2e-platform-aws/high-infra/k8s/flink
 
 # Submit Flink job (automatically configures S3 checkpoints)
 ./submit-job-from-image.sh
@@ -216,7 +221,7 @@ kubectl get nodes -l flink-component --show-labels
 ### Verify Flink S3 Checkpoints:
 ```bash
 # Get S3 bucket name from Terraform
-cd aws-deploy-fluss/high-infra/terraform
+cd e2e-iot/high-infra/terraform
 S3_BUCKET=$(terraform output -raw flink_s3_bucket_name)
 
 # Check checkpoints are being written to S3
@@ -371,7 +376,7 @@ To destroy everything:
 kubectl delete namespace fluss monitoring
 
 # Destroy Terraform infrastructure
-cd aws-deploy-fluss/low-infra/terraform
+cd e2e-iot/high-infra/terraform
 terraform destroy
 ```
 

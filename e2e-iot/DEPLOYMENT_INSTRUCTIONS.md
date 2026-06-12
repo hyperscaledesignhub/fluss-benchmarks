@@ -31,46 +31,75 @@ This document provides step-by-step instructions to deploy the complete Fluss pl
 
 ## Step 1: Push Images to ECR
 
-First, build and push all required Docker images to AWS ECR:
+First, build and push all required Docker images to AWS ECR.
+
+The Fluss server image version is configurable. Default is `0.9.0-incubating`. The script pulls `apache/fluss:<version>` from Docker Hub and pushes it to your ECR repository with the same tag.
 
 ```bash
-cd fluss/benchmark/e2e-platform-aws
-./push-images-to-ecr.sh
+cd e2e-iot
+
+# Default version (0.9.0-incubating)
+./push-images-to-ecr.sh --all
+
+# Or specify a Fluss version explicitly
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+
+# Push only the Fluss image for a given version
+./push-images-to-ecr.sh --fluss-only --fluss-version 0.9.0-incubating
 ```
 
 This script will:
-- Build the Fluss demo image (for producer and Flink aggregator)
-- Build/pull the Apache Fluss image
+- Build the Fluss demo image (for producer and Flink aggregator), using the same Fluss client version for Maven dependencies
+- Pull the Apache Fluss image for the requested version
 - Push both images to your AWS ECR repositories
 
 **Options:**
-- `./push-images-to-ecr.sh --all` - Push both images (default)
+- `./push-images-to-ecr.sh --all` - Push both images
 - `./push-images-to-ecr.sh --producer-only` - Push only producer image
 - `./push-images-to-ecr.sh --fluss-only` - Push only Fluss image
+- `--fluss-version VERSION` - Fluss image tag to pull and push (default: `0.9.0-incubating`)
+- `FLUSS_VERSION` env var - Same as `--fluss-version` if the flag is not passed
+
+After a successful push, the script writes `ecr-repositories.txt` with `FLUSS_VERSION` and ECR URLs.
 
 ## Step 2: Set Environment Variables
 
-Load the default environment variables:
+Set the Fluss version to match what you pushed, then load the default environment:
 
 ```bash
-cd fluss/benchmark/e2e-platform-aws
+cd e2e-iot
+
+# Must match the version used in Step 1 (default: 0.9.0-incubating)
+export FLUSS_VERSION=0.9.0-incubating
+
 source ./default.env.sh
 ```
 
-This sets:
+`default.env.sh` sets:
+- `FLUSS_VERSION` - Fluss release tag (default: `0.9.0-incubating`)
+- `FLUSS_IMAGE_TAG` - ECR image tag for deploy (defaults to `FLUSS_VERSION`)
 - `DEMO_IMAGE_REPO` - ECR repository for demo image
-- `DEMO_IMAGE_TAG` - Image tag (default: latest)
-- `FLUSS_IMAGE_REPO` - ECR repository for Fluss image
-- `NAMESPACE` - Kubernetes namespace (default: fluss)
-- `CLUSTER_NAME` - EKS cluster name (default: fluss-eks-cluster)
-- `REGION` - AWS region (default: us-west-2)
+- `DEMO_IMAGE_TAG` - Image tag (default: `latest`)
+- `FLUSS_IMAGE_REPO` - ECR repository for Fluss image (no tag; deploy uses `FLUSS_IMAGE_TAG`)
+- `NAMESPACE` - Kubernetes namespace (default: `fluss`)
+- `CLUSTER_NAME` - EKS cluster name (default: `fluss-eks-cluster`)
+- `REGION` - AWS region (default: `us-west-2`)
+
+Deploy scripts (`high-infra/k8s/deploy.sh`, `03-deploy-components.sh`) read `FLUSS_VERSION` / `FLUSS_IMAGE_TAG` so the cluster runs the same Fluss image you pushed to ECR.
+
+Optional: download the matching Helm chart for offline use:
+
+```bash
+cd e2e-iot/high-infra
+./download-helm-chart.sh --fluss-version "${FLUSS_VERSION}"
+```
 
 ## Step 3: Execute Deployment Scripts
 
 Navigate to the scripts directory and execute all deployment scripts in order:
 
 ```bash
-cd fluss/benchmark/e2e-platform-aws/high-infra/k8s/scripts
+cd e2e-iot/high-infra/k8s/scripts
 ```
 
 Execute the following scripts in sequence:
@@ -195,7 +224,7 @@ This script:
 
 Use the port-forward script:
 ```bash
-cd fluss/benchmark/e2e-platform-aws
+cd e2e-iot
 ./port-forward-flink.sh
 ```
 
@@ -210,7 +239,7 @@ Then open: http://localhost:8081
 
 Use the port-forward script:
 ```bash
-cd fluss/benchmark/e2e-platform-aws
+cd e2e-iot
 ./port-forward-grafana.sh
 ```
 
@@ -292,7 +321,7 @@ kubectl get endpoints -n fluss
 To destroy all resources:
 
 ```bash
-cd fluss/benchmark/e2e-platform-aws/high-infra/terraform
+cd e2e-iot/high-infra/terraform
 terraform destroy
 ```
 

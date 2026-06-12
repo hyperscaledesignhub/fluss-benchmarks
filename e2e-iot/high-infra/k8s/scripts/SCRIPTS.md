@@ -49,15 +49,24 @@ The master script that runs all deployment steps in sequence with comprehensive 
 - `NAMESPACE` - Kubernetes namespace (default: `fluss`)
 - `DEMO_IMAGE_REPO` - Demo image repository (required for step 5)
 - `DEMO_IMAGE_TAG` - Demo image tag (default: `latest`)
-- `FLUSS_IMAGE_REPO` - Fluss image repository (default: `apache/fluss:0.8.0-incubating`)
+- `FLUSS_VERSION` - Fluss release tag (default: `0.9.0-incubating`); must match the version pushed to ECR
+- `FLUSS_IMAGE_TAG` - Fluss image tag for Helm deploy (defaults to `FLUSS_VERSION`)
+- `FLUSS_IMAGE_REPO` - Fluss ECR repository URL without tag (default: `apache/fluss:0.9.0-incubating` if unset)
 - `CLUSTER_NAME` - EKS cluster name (default: `fluss-eks-cluster`)
 - `REGION` - AWS region (default: `us-west-2`)
 
 **Example:**
 
 ```bash
-export DEMO_IMAGE_REPO=343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss-demo
-export FLUSS_IMAGE_REPO=343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss
+cd e2e-iot
+
+# Push images for your Fluss version first
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+
+export FLUSS_VERSION=0.9.0-incubating
+source ./default.env.sh
+
+cd high-infra/k8s/scripts
 ./deploy-benchmark.sh
 ```
 
@@ -148,7 +157,9 @@ Deploys all infrastructure components:
 **Environment Variables:**
 - `NAMESPACE` - Kubernetes namespace (default: `fluss`)
 - `DEMO_IMAGE_TAG` - Demo image tag (default: `latest`)
-- `FLUSS_IMAGE_REPO` - Fluss image repository
+- `FLUSS_VERSION` - Fluss release tag (must match ECR push)
+- `FLUSS_IMAGE_REPO` - Fluss ECR repository (without tag)
+- `FLUSS_IMAGE_TAG` - Fluss image tag for deploy (defaults to `FLUSS_VERSION`)
 
 **Note:** This step skips producer deployment, which is handled separately in step 5.
 
@@ -161,9 +172,13 @@ Verifies that NVMe storage is correctly configured for tablet servers.
 - Step 2 completed successfully
 
 **What it checks:**
-- PersistentVolumes exist and are bound
-- PVs are configured with NVMe paths (`/opt/alldata/fluss/data`)
-- Tablet server pods have volumes mounted correctly
+- PersistentVolumes exist with path `/opt/alldata/fluss/data`
+- Fluss StatefulSet has `volumeClaimTemplates` and PVCs are `Bound`
+- Tablet server pods mount NVMe at `/tmp/fluss/data` (Fluss `data.dir`)
+
+**Common failure — PVs Available but no PVCs:** Kubernetes does not allow adding
+`volumeClaimTemplates` to an existing StatefulSet. Re-run step 3 (`deploy.sh` now
+recreates StatefulSets automatically when PVCs are missing).
 
 ### Step 5: `05-deploy-producer.sh`
 
@@ -260,16 +275,16 @@ The master script (`deploy-benchmark.sh`) provides comprehensive error handling:
 ./00-deploy-infra.sh
 
 # Steps 1-8: Deploy all components
-export DEMO_IMAGE_REPO=your-repo/fluss-demo
-export FLUSS_IMAGE_REPO=your-repo/fluss
+export FLUSS_VERSION=0.9.0-incubating
+source ../../../default.env.sh
 ./deploy-benchmark.sh
 ```
 
 Or run everything including infrastructure:
 
 ```bash
-export DEMO_IMAGE_REPO=your-repo/fluss-demo
-export FLUSS_IMAGE_REPO=your-repo/fluss
+export FLUSS_VERSION=0.9.0-incubating
+source ../../../default.env.sh
 ./deploy-benchmark.sh  # Runs steps 0-8
 ```
 

@@ -60,19 +60,39 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Step 2: Build and Push Docker Images to ECR
 
+Fluss version is configurable (default: `0.9.0-incubating`). The push script downloads `apache/fluss:<version>` and uploads it to ECR.
+
 **Option A: Use Automated Script**
 
 ```bash
-cd demos/2-million-messages-per-second/high-infra
-./push-images-to-ecr.sh
+cd e2e-iot
+
+# Push both images with default Fluss version
+./push-images-to-ecr.sh --all
+
+# Or set version explicitly
+./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+
+# Environment variable (alternative to --fluss-version)
+export FLUSS_VERSION=0.9.0-incubating
+./push-images-to-ecr.sh --fluss-only
+```
+
+Then configure deploy environment (version must match ECR tag):
+
+```bash
+export FLUSS_VERSION=0.9.0-incubating
+source e2e-iot/default.env.sh
 ```
 
 **Option B: Manual Build and Push**
 
 ```bash
-# Build demo application
-cd demos/2-million-messages-per-second/fluss_flink_realtime
-mvn clean package
+VERSION=0.9.0-incubating
+
+# Build demo application (client deps match Fluss version)
+cd e2e-iot/fluss_flink_realtime
+mvn clean package -Dfluss.version=${VERSION}
 docker build -t fluss-demo:latest .
 
 # Get ECR login
@@ -86,10 +106,10 @@ docker tag fluss-demo:latest ${ECR_BASE}/fluss-demo:latest
 docker push ${ECR_BASE}/fluss-demo:latest
 
 # Pull, tag, and push Fluss image
-docker pull apache/fluss:0.8.0-incubating
-docker tag apache/fluss:0.8.0-incubating ${ECR_BASE}/fluss:0.8.0-incubating
-docker tag apache/fluss:0.8.0-incubating ${ECR_BASE}/fluss:latest
-docker push ${ECR_BASE}/fluss:0.8.0-incubating
+docker pull apache/fluss:${VERSION}
+docker tag apache/fluss:${VERSION} ${ECR_BASE}/fluss:${VERSION}
+docker tag apache/fluss:${VERSION} ${ECR_BASE}/fluss:latest
+docker push ${ECR_BASE}/fluss:${VERSION}
 docker push ${ECR_BASE}/fluss:latest
 ```
 
@@ -241,17 +261,28 @@ kubectl get pvc -n fluss
 # Check tablet server pods and their volumes
 kubectl get pods -n fluss -l app.kubernetes.io/component=tablet-server -o wide
 
-# Verify mount paths inside tablet server pods
-kubectl exec -n fluss <tablet-server-pod-name> -- df -h | grep alldata
+# Verify mount paths inside tablet server pods (Fluss uses data.dir=/tmp/fluss/data)
+kubectl exec -n fluss <tablet-server-pod-name> -- df -h /tmp/fluss/data
 
-# Check that data directory exists on NVMe
-kubectl exec -n fluss <tablet-server-pod-name> -- ls -la /opt/alldata/fluss/
+# Check PVCs were created and bound by the StatefulSet
+kubectl get pvc -n fluss
+kubectl get pv -l component=tablet-server
 ```
 
 **Expected Results:**
-- PVs should show `path: /opt/alldata/fluss/data`
-- Tablet server pods should have volumes mounted at `/opt/alldata/fluss`
-- Data directory should exist: `/opt/alldata/fluss/data`
+- PVs should show `path: /opt/alldata/fluss/data` (node-local NVMe path)
+- PVCs `data-tablet-server-0`, `data-tablet-server-1`, `data-tablet-server-2` should be `Bound`
+- Tablet server pods mount the PV at `/tmp/fluss/data` (not `/opt/alldata` inside the pod)
+- On the node, NVMe is at `/opt/alldata` with data at `/opt/alldata/fluss/data`
+
+**If PVCs are missing:** The tablet-server StatefulSet was likely created without
+`persistence.enabled=true`. Delete and redeploy Fluss (StatefulSet volumeClaimTemplates
+are immutable):
+
+```bash
+kubectl delete sts tablet-server -n fluss --cascade=orphan
+cd high-infra/k8s && ./deploy.sh fluss "${DEMO_IMAGE_REPO}" latest "${FLUSS_IMAGE_REPO}"
+```
 
 ---
 
