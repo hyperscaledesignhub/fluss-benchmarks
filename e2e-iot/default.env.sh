@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +16,52 @@
 # limitations under the License.
 #
 
+# Usage:
+#   source ./default.env.sh --fluss-version VERSION
+#
+# Example:
+#   source ./default.env.sh --fluss-version 0.9.0-incubating
+
+_default_env_fail() {
+    echo "Error: $1" >&2
+    echo "Usage: source $(basename "${BASH_SOURCE[0]}") --fluss-version VERSION" >&2
+    echo "Example: source ./default.env.sh --fluss-version 0.9.0-incubating" >&2
+    return 1 2>/dev/null || exit 1
+}
+
+_fluss_version_arg=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --fluss-version)
+            if [ $# -lt 2 ]; then
+                _default_env_fail "--fluss-version requires a value"
+            fi
+            _fluss_version_arg="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: source ./default.env.sh --fluss-version VERSION"
+            echo "Example: source ./default.env.sh --fluss-version 0.9.0-incubating"
+            return 0 2>/dev/null || exit 0
+            ;;
+        *)
+            _default_env_fail "Unknown argument: $1"
+            ;;
+    esac
+done
+
+if [ -z "${_fluss_version_arg}" ]; then
+    _default_env_fail "--fluss-version is required"
+fi
+
+export FLUSS_VERSION="${_fluss_version_arg}"
+
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 AWS_REGION="us-west-2"
 export DEMO_IMAGE_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fluss-demo"
 export DEMO_IMAGE_TAG="latest"
-export FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 export FLUSS_IMAGE_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fluss"
-export FLUSS_IMAGE_TAG="${FLUSS_IMAGE_TAG:-${FLUSS_VERSION}}"
+export FLUSS_IMAGE_TAG="${FLUSS_VERSION}"
 export NAMESPACE="fluss"
 export CLUSTER_NAME="fluss-eks-cluster"
 export REGION="${AWS_REGION}"

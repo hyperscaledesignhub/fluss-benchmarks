@@ -29,55 +29,18 @@ This document provides step-by-step instructions to deploy the complete Fluss pl
 - Docker installed (for building images)
 - Maven installed (for building Flink job JAR)
 
-## Step 1: Push Images to ECR
+## Step 1: Set Environment Variables
 
-First, build and push all required Docker images to AWS ECR.
-
-The Fluss server image version is configurable. Default is `0.9.0-incubating`. The script pulls `apache/fluss:<version>` from Docker Hub and pushes it to your ECR repository with the same tag.
+Configure the Fluss version and ECR settings. `--fluss-version` is **required**; the script errors if it is omitted.
 
 ```bash
 cd e2e-iot
-
-# Default version (0.9.0-incubating)
-./push-images-to-ecr.sh --all
-
-# Or specify a Fluss version explicitly
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
-
-# Push only the Fluss image for a given version
-./push-images-to-ecr.sh --fluss-only --fluss-version 0.9.0-incubating
-```
-
-This script will:
-- Build the Fluss demo image (for producer and Flink aggregator), using the same Fluss client version for Maven dependencies
-- Pull the Apache Fluss image for the requested version
-- Push both images to your AWS ECR repositories
-
-**Options:**
-- `./push-images-to-ecr.sh --all` - Push both images
-- `./push-images-to-ecr.sh --producer-only` - Push only producer image
-- `./push-images-to-ecr.sh --fluss-only` - Push only Fluss image
-- `--fluss-version VERSION` - Fluss image tag to pull and push (default: `0.9.0-incubating`)
-- `FLUSS_VERSION` env var - Same as `--fluss-version` if the flag is not passed
-
-After a successful push, the script writes `ecr-repositories.txt` with `FLUSS_VERSION` and ECR URLs.
-
-## Step 2: Set Environment Variables
-
-Set the Fluss version to match what you pushed, then load the default environment:
-
-```bash
-cd e2e-iot
-
-# Must match the version used in Step 1 (default: 0.9.0-incubating)
-export FLUSS_VERSION=0.9.0-incubating
-
-source ./default.env.sh
+source ./default.env.sh --fluss-version 0.9.0-incubating
 ```
 
 `default.env.sh` sets:
-- `FLUSS_VERSION` - Fluss release tag (default: `0.9.0-incubating`)
-- `FLUSS_IMAGE_TAG` - ECR image tag for deploy (defaults to `FLUSS_VERSION`)
+- `FLUSS_VERSION` - Fluss release tag (from `--fluss-version`)
+- `FLUSS_IMAGE_TAG` - ECR image tag for deploy (same as `FLUSS_VERSION`)
 - `DEMO_IMAGE_REPO` - ECR repository for demo image
 - `DEMO_IMAGE_TAG` - Image tag (default: `latest`)
 - `FLUSS_IMAGE_REPO` - ECR repository for Fluss image (no tag; deploy uses `FLUSS_IMAGE_TAG`)
@@ -85,13 +48,33 @@ source ./default.env.sh
 - `CLUSTER_NAME` - EKS cluster name (default: `fluss-eks-cluster`)
 - `REGION` - AWS region (default: `us-west-2`)
 
-Deploy scripts (`high-infra/k8s/deploy.sh`, `03-deploy-components.sh`) read `FLUSS_VERSION` / `FLUSS_IMAGE_TAG` so the cluster runs the same Fluss image you pushed to ECR.
+Deploy scripts (`high-infra/k8s/deploy.sh`, `03-deploy-components.sh`) require `FLUSS_VERSION` from this step.
+
+## Step 2: Push Images to ECR
+
+With `FLUSS_VERSION` set, build and push images. The push script reads `FLUSS_VERSION` from the environment (no CLI version flag).
+
+```bash
+# Still in e2e-iot with default.env.sh sourced
+./push-images-to-ecr.sh --all
+
+# Or push only Fluss / only demo
+./push-images-to-ecr.sh --fluss-only
+./push-images-to-ecr.sh --producer-only
+```
+
+This script will:
+- Build the Fluss demo image using Maven dependencies matching `FLUSS_VERSION`
+- Pull `apache/fluss:${FLUSS_VERSION}` from Docker Hub
+- Push both images to your AWS ECR repositories
+
+After a successful push, the script writes `ecr-repositories.txt` with `FLUSS_VERSION` and ECR URLs.
 
 Optional: download the matching Helm chart for offline use:
 
 ```bash
 cd e2e-iot/high-infra
-./download-helm-chart.sh --fluss-version "${FLUSS_VERSION}"
+./download-helm-chart.sh
 ```
 
 ## Step 3: Execute Deployment Scripts

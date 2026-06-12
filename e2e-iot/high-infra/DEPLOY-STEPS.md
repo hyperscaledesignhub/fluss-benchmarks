@@ -35,18 +35,17 @@ Default Fluss version is `0.9.0-incubating`. Push and deploy must use the same v
 ```bash
 cd e2e-iot
 
-# Push images (pulls apache/fluss:<version> → ECR)
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
+# Set version and ECR env (required before push or deploy)
+source ./default.env.sh --fluss-version 0.9.0-incubating
 
-# Set env for deploy (FLUSS_IMAGE_TAG defaults to FLUSS_VERSION)
-export FLUSS_VERSION=0.9.0-incubating
-source ./default.env.sh
+# Push images (reads FLUSS_VERSION from environment)
+./push-images-to-ecr.sh --all
 ```
 
 | Variable | Purpose |
 |----------|---------|
-| `FLUSS_VERSION` | Fluss release tag (default `0.9.0-incubating`) |
-| `FLUSS_IMAGE_TAG` | Image tag used by Helm deploy (defaults to `FLUSS_VERSION`) |
+| `FLUSS_VERSION` | Fluss release tag (set by `default.env.sh --fluss-version`) |
+| `FLUSS_IMAGE_TAG` | Image tag used by Helm deploy (same as `FLUSS_VERSION`) |
 | `FLUSS_IMAGE_REPO` | ECR repo URL without tag (from `default.env.sh`) |
 
 ## Step 1: Update Kubeconfig
@@ -88,8 +87,7 @@ Deploy ZooKeeper, Fluss, Flink, and Monitoring stack:
 ```bash
 cd e2e-iot/high-infra/k8s
 
-# Deploy with ECR images (source default.env.sh first so FLUSS_IMAGE_TAG is set)
-source ../../default.env.sh
+# Deploy with ECR images (default.env.sh must already be sourced)
 ./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```
 

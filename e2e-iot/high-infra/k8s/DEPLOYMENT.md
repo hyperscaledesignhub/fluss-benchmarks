@@ -32,9 +32,8 @@ This guide walks through deploying the entire Fluss + Flink stack on AWS EKS.
 
 ```bash
 cd e2e-iot
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
-export FLUSS_VERSION=0.9.0-incubating
-source ./default.env.sh
+source ./default.env.sh --fluss-version 0.9.0-incubating
+./push-images-to-ecr.sh --all
 ```
 
 ## Step 1: Create EKS Cluster and Node Groups
@@ -84,10 +83,7 @@ kubectl get nodes
 ```bash
 cd e2e-iot
 
-# After push-images-to-ecr.sh, load ECR repos and Fluss version
-export FLUSS_VERSION=0.9.0-incubating
-source ./default.env.sh
-
+# After push-images-to-ecr.sh (with default.env.sh already sourced)
 cd high-infra/k8s
 ./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```

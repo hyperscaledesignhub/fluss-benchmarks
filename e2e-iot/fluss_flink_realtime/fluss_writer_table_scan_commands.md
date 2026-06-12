@@ -37,10 +37,10 @@ target/fluss-flink-realtime-demo.jar
 
 ## 2. Start / stop Fluss local cluster
 
-Default version is `0.9.0-incubating`. Set `FLUSS_VERSION` and point `FLUSS_HOME` at the extracted directory:
+Set the Fluss version via `default.env.sh` and point `FLUSS_HOME` at the extracted directory:
 
 ```bash
-export FLUSS_VERSION=0.9.0-incubating
+source ../../default.env.sh --fluss-version 0.9.0-incubating
 export FLUSS_HOME=/path/to/fluss-${FLUSS_VERSION}
 ```
 

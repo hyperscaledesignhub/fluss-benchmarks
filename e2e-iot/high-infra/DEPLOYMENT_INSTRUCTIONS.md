@@ -60,29 +60,15 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Step 2: Build and Push Docker Images to ECR
 
-Fluss version is configurable (default: `0.9.0-incubating`). The push script downloads `apache/fluss:<version>` and uploads it to ECR.
+Set the Fluss version via `default.env.sh` first (`--fluss-version` is required). Push scripts read `FLUSS_VERSION` from the environment.
 
 **Option A: Use Automated Script**
 
 ```bash
 cd e2e-iot
-
-# Push both images with default Fluss version
+source ./default.env.sh --fluss-version 0.9.0-incubating
 ./push-images-to-ecr.sh --all
-
-# Or set version explicitly
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
-
-# Environment variable (alternative to --fluss-version)
-export FLUSS_VERSION=0.9.0-incubating
-./push-images-to-ecr.sh --fluss-only
-```
-
-Then configure deploy environment (version must match ECR tag):
-
-```bash
-export FLUSS_VERSION=0.9.0-incubating
-source e2e-iot/default.env.sh
+# or: ./push-images-to-ecr.sh --fluss-only
 ```
 
 **Option B: Manual Build and Push**

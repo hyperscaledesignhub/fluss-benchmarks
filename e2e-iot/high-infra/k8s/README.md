@@ -45,9 +45,8 @@ Push and deploy must use the same version:
 
 ```bash
 cd e2e-iot
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
-export FLUSS_VERSION=0.9.0-incubating
-source ./default.env.sh
+source ./default.env.sh --fluss-version 0.9.0-incubating
+./push-images-to-ecr.sh --all
 ```
 
 `deploy.sh` uses `FLUSS_IMAGE_TAG` (from `FLUSS_VERSION`) when `FLUSS_IMAGE_REPO` has no inline tag.
@@ -58,14 +57,13 @@ source ./default.env.sh
 
 ```bash
 cd e2e-iot
-source ./default.env.sh
+source ./default.env.sh --fluss-version 0.9.0-incubating
 cd high-infra/k8s
 ./deploy.sh fluss "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 ```
 
-Example (manual values):
+Example (manual values after sourcing default.env.sh):
 ```bash
-export FLUSS_VERSION=0.9.0-incubating
 ./deploy.sh fluss \
   123456789012.dkr.ecr.us-west-2.amazonaws.com/fluss-demo \
   latest \

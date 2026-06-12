@@ -23,12 +23,13 @@ set -euo pipefail
 # 2. fluss (Apache Fluss image)
 #
 # Usage:
-#   ./push-images-to-ecr.sh --all [--fluss-version VERSION]
-#   ./push-images-to-ecr.sh --producer-only [--fluss-version VERSION]
-#   ./push-images-to-ecr.sh --fluss-only [--fluss-version VERSION]
+#   source ./default.env.sh --fluss-version VERSION
+#   ./push-images-to-ecr.sh --all
+#   ./push-images-to-ecr.sh --producer-only
+#   ./push-images-to-ecr.sh --fluss-only
 #
-# Fluss version defaults to 0.9.0-incubating (or FLUSS_VERSION env var).
-# The given version is pulled from Docker Hub (apache/fluss:VERSION) and pushed to ECR.
+# FLUSS_VERSION must be set (via default.env.sh). The script pulls
+# apache/fluss:${FLUSS_VERSION} from Docker Hub and pushes it to ECR.
 #
 # IMPORTANT: This script must be run from the e2e-platform-aws directory
 
@@ -63,21 +64,24 @@ case "${ACTUAL_BASE_NAME}" in
         ;;
 esac
 
+if [ -z "${FLUSS_VERSION:-}" ]; then
+    echo -e "${RED}Error: FLUSS_VERSION is not set.${NC}"
+    echo -e "Source environment first:"
+    echo -e "  source ./default.env.sh --fluss-version 0.9.0-incubating"
+    exit 1
+fi
+
 # Parse command line arguments
 PUSH_DEMO=false
 PUSH_FLUSS=false
 MODE_SET=false
-FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 
 usage() {
     echo -e "Usage:"
+    echo -e "  source ./default.env.sh --fluss-version VERSION"
     echo -e "  $0 --all              # Push both images"
     echo -e "  $0 --producer-only    # Push only producer image"
     echo -e "  $0 --fluss-only       # Push only Fluss image"
-    echo -e ""
-    echo -e "Options:"
-    echo -e "  --fluss-version VER   Fluss image tag to pull and push (default: 0.9.0-incubating)"
-    echo -e "                        Also accepts env FLUSS_VERSION"
 }
 
 while [ $# -gt 0 ]; do
@@ -99,15 +103,6 @@ while [ $# -gt 0 ]; do
             PUSH_FLUSS=true
             MODE_SET=true
             shift
-            ;;
-        --fluss-version)
-            if [ $# -lt 2 ]; then
-                echo -e "${RED}Error: --fluss-version requires a value${NC}"
-                usage
-                exit 1
-            fi
-            FLUSS_VERSION="$2"
-            shift 2
             ;;
         -h|--help)
             usage
@@ -329,9 +324,8 @@ if [ "$PUSH_FLUSS" = true ]; then
     echo -e "  fluss_version = \"${FLUSS_VERSION}\""
     echo -e "  use_ecr_for_fluss = true"
     echo -e ""
-    echo -e "Set version for deploy:"
-    echo -e "  export FLUSS_VERSION=\"${FLUSS_VERSION}\""
-    echo -e "  source ${BASE_DIR}/default.env.sh"
+    echo -e "Environment already set if you sourced default.env.sh before push."
+    echo -e "  source ${BASE_DIR}/default.env.sh --fluss-version ${FLUSS_VERSION}"
 fi
 echo -e ""
 

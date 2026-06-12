@@ -27,10 +27,11 @@ This guide explains how to test the Fluss producer and Flink job locally with th
 3. **Flink 1.20.3** (optional) - For running Flink job locally
 4. **Java 11+** - For running Java applications
 
-Set the Fluss version if not using the default:
+Set the Fluss version via `default.env.sh` or export `FLUSS_VERSION` before running tests:
 
 ```bash
-export FLUSS_VERSION=0.9.0-incubating
+cd e2e-iot
+source ./default.env.sh --fluss-version 0.9.0-incubating
 export FLUSS_HOME=/path/to/fluss-${FLUSS_VERSION}   # optional
 ```
 

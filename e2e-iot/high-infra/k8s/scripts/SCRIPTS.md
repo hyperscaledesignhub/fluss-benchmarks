@@ -49,7 +49,7 @@ The master script that runs all deployment steps in sequence with comprehensive 
 - `NAMESPACE` - Kubernetes namespace (default: `fluss`)
 - `DEMO_IMAGE_REPO` - Demo image repository (required for step 5)
 - `DEMO_IMAGE_TAG` - Demo image tag (default: `latest`)
-- `FLUSS_VERSION` - Fluss release tag (default: `0.9.0-incubating`); must match the version pushed to ECR
+- `FLUSS_VERSION` - Fluss release tag (set via `source default.env.sh --fluss-version VERSION`)
 - `FLUSS_IMAGE_TAG` - Fluss image tag for Helm deploy (defaults to `FLUSS_VERSION`)
 - `FLUSS_IMAGE_REPO` - Fluss ECR repository URL without tag (default: `apache/fluss:0.9.0-incubating` if unset)
 - `CLUSTER_NAME` - EKS cluster name (default: `fluss-eks-cluster`)
@@ -59,12 +59,8 @@ The master script that runs all deployment steps in sequence with comprehensive 
 
 ```bash
 cd e2e-iot
-
-# Push images for your Fluss version first
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
-
-export FLUSS_VERSION=0.9.0-incubating
-source ./default.env.sh
+source ./default.env.sh --fluss-version 0.9.0-incubating
+./push-images-to-ecr.sh --all
 
 cd high-infra/k8s/scripts
 ./deploy-benchmark.sh
@@ -275,16 +271,14 @@ The master script (`deploy-benchmark.sh`) provides comprehensive error handling:
 ./00-deploy-infra.sh
 
 # Steps 1-8: Deploy all components
-export FLUSS_VERSION=0.9.0-incubating
-source ../../../default.env.sh
+source ../../../default.env.sh --fluss-version 0.9.0-incubating
 ./deploy-benchmark.sh
 ```
 
 Or run everything including infrastructure:
 
 ```bash
-export FLUSS_VERSION=0.9.0-incubating
-source ../../../default.env.sh
+source ../../../default.env.sh --fluss-version 0.9.0-incubating
 ./deploy-benchmark.sh  # Runs steps 0-8
 ```
 

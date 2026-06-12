@@ -26,22 +26,19 @@ NAMESPACE="${NAMESPACE:-fluss}"
 DEMO_IMAGE_TAG="${DEMO_IMAGE_TAG:-latest}"
 AWS_REGION="${REGION:-us-west-2}"
 
-# Load ECR image repos from default.env.sh when not already exported
-if [ -z "${DEMO_IMAGE_REPO:-}" ] || [ -z "${FLUSS_IMAGE_REPO:-}" ]; then
-    DEFAULT_ENV="$(cd "${SCRIPT_DIR}/../../.." && pwd)/default.env.sh"
-    if [ -f "${DEFAULT_ENV}" ]; then
-        # shellcheck source=/dev/null
-        source "${DEFAULT_ENV}"
-    fi
+if [ -z "${FLUSS_VERSION:-}" ]; then
+    echo "ERROR: FLUSS_VERSION is not set."
+    echo "  source e2e-iot/default.env.sh --fluss-version 0.9.0-incubating"
+    exit 1
 fi
 
 DEMO_IMAGE_REPO="${DEMO_IMAGE_REPO:-}"
-FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
-FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-apache/fluss:${FLUSS_VERSION}}"
+FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-}"
+FLUSS_IMAGE_TAG="${FLUSS_IMAGE_TAG:-${FLUSS_VERSION}}"
 
-if [ -z "${DEMO_IMAGE_REPO}" ]; then
-    echo "ERROR: DEMO_IMAGE_REPO is not set."
-    echo "  source benchmark/e2e-platform-aws/default.env.sh"
+if [ -z "${DEMO_IMAGE_REPO}" ] || [ -z "${FLUSS_IMAGE_REPO}" ]; then
+    echo "ERROR: DEMO_IMAGE_REPO and FLUSS_IMAGE_REPO must be set."
+    echo "  source e2e-iot/default.env.sh --fluss-version ${FLUSS_VERSION}"
     exit 1
 fi
 

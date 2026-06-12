@@ -23,35 +23,30 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 K8S_DIR="${SCRIPT_DIR}"
 
-NAMESPACE="${1:-fluss}"
-DEMO_IMAGE_REPO="${2:-}"
-DEMO_IMAGE_TAG="${3:-latest}"
-FLUSS_IMAGE_REPO="${4:-apache/fluss:0.9.0-incubating}"
+NAMESPACE="${1:-${NAMESPACE:-fluss}}"
+DEMO_IMAGE_REPO="${2:-${DEMO_IMAGE_REPO:-}}"
+DEMO_IMAGE_TAG="${3:-${DEMO_IMAGE_TAG:-latest}}"
+FLUSS_IMAGE_REPO="${4:-${FLUSS_IMAGE_REPO:-}}"
 
-# Resolve demo image repo when not passed (required for Flink copy-job-jar init container)
-if [ -z "${DEMO_IMAGE_REPO}" ]; then
-    DEFAULT_ENV="${SCRIPT_DIR}/../../default.env.sh"
-    if [ -f "${DEFAULT_ENV}" ]; then
-        # shellcheck source=/dev/null
-        source "${DEFAULT_ENV}"
-    elif command -v terraform &> /dev/null && [ -d "${SCRIPT_DIR}/../terraform" ]; then
-        DEMO_IMAGE_REPO="$(terraform -chdir="${SCRIPT_DIR}/../terraform" output -raw demo_image_repository 2>/dev/null || true)"
-    fi
-    if [ -z "${DEMO_IMAGE_REPO}" ] && command -v aws &> /dev/null; then
-        AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)"
-        AWS_REGION="${REGION:-us-west-2}"
-        if [ -n "${AWS_ACCOUNT_ID}" ]; then
-            DEMO_IMAGE_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fluss-demo"
-        fi
-    fi
+if [ -z "${FLUSS_VERSION:-}" ]; then
+    echo "ERROR: FLUSS_VERSION is not set."
+    echo "  source e2e-iot/default.env.sh --fluss-version 0.9.0-incubating"
+    exit 1
 fi
 
 if [ -z "${DEMO_IMAGE_REPO}" ]; then
     echo "ERROR: DEMO_IMAGE_REPO is not set."
-    echo "  source benchmark/e2e-platform-aws/default.env.sh"
-    echo "  or: export DEMO_IMAGE_REPO=<account>.dkr.ecr.<region>.amazonaws.com/fluss-demo"
+    echo "  source e2e-iot/default.env.sh --fluss-version ${FLUSS_VERSION}"
     exit 1
 fi
+
+if [ -z "${FLUSS_IMAGE_REPO}" ]; then
+    echo "ERROR: FLUSS_IMAGE_REPO is not set."
+    echo "  source e2e-iot/default.env.sh --fluss-version ${FLUSS_VERSION}"
+    exit 1
+fi
+
+FLUSS_IMAGE_TAG="${FLUSS_IMAGE_TAG:-${FLUSS_VERSION}}"
 
 # Export variables for envsubst
 export NAMESPACE
@@ -87,17 +82,6 @@ kubectl apply -f "${K8S_DIR}/zookeeper/zookeeper.yaml"
 # Wait for ZooKeeper to be ready
 echo "Waiting for ZooKeeper to be ready..."
 kubectl wait --for=condition=ready pod -l app=zookeeper -n ${NAMESPACE} --timeout=120s || true
-
-# Load FLUSS_IMAGE_TAG from default.env.sh when using ECR repo without an inline tag
-if [ -z "${FLUSS_IMAGE_TAG:-}" ]; then
-    DEFAULT_ENV="${SCRIPT_DIR}/../../default.env.sh"
-    if [ -f "${DEFAULT_ENV}" ]; then
-        # shellcheck source=/dev/null
-        source "${DEFAULT_ENV}"
-    fi
-fi
-FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
-FLUSS_IMAGE_TAG="${FLUSS_IMAGE_TAG:-${FLUSS_VERSION}}"
 
 # StatefulSet volumeClaimTemplates are immutable. If Fluss was first installed without
 # persistence, helm upgrade cannot add PVCs — recreate the StatefulSets before Helm.

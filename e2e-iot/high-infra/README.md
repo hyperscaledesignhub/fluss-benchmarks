@@ -64,7 +64,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### 2. Build and Push Images to ECR
 
-Use the provided script to build and push all images (demo app and Fluss). The Fluss version defaults to `0.9.0-incubating` and can be overridden with `--fluss-version` or `FLUSS_VERSION`.
+Set the Fluss version first (`--fluss-version` is required), then push images. Push scripts read `FLUSS_VERSION` from the environment.
 
 ```bash
 cd e2e-iot
@@ -72,33 +72,24 @@ cd e2e-iot
 # Make sure AWS CLI is configured
 aws configure
 
-# Push both images (default Fluss version)
+source ./default.env.sh --fluss-version 0.9.0-incubating
 ./push-images-to-ecr.sh --all
-
-# Or specify the Fluss version to pull from Docker Hub and push to ECR
-./push-images-to-ecr.sh --all --fluss-version 0.9.0-incubating
 ```
 
 This script will:
 1. Create ECR repositories (if they don't exist)
 2. Build the demo application image (`fluss-demo`) with Maven dependencies matching `FLUSS_VERSION`
 3. Push demo image to ECR
-4. Pull `apache/fluss:<version>` from Docker Hub
-5. Push Fluss image to ECR as `:<version>` and `:latest`
+4. Pull `apache/fluss:${FLUSS_VERSION}` from Docker Hub
+5. Push Fluss image to ECR as `:${FLUSS_VERSION}` and `:latest`
 
-After running, set environment variables for deploy (version must match what you pushed):
-
-```bash
-export FLUSS_VERSION=0.9.0-incubating   # same as --fluss-version above
-source e2e-iot/default.env.sh
-```
-
-`default.env.sh` exports `FLUSS_IMAGE_REPO`, `FLUSS_IMAGE_TAG` (from `FLUSS_VERSION`), and other deploy defaults. Update `terraform/terraform.tfvars` `fluss_version` to the same value if using Terraform outputs.
+`default.env.sh` exports `FLUSS_VERSION`, `FLUSS_IMAGE_REPO`, `FLUSS_IMAGE_TAG`, and other deploy defaults. Update `terraform/terraform.tfvars` `fluss_version` to match.
 
 Alternatively, push only the Fluss image:
 
 ```bash
-./push-images-to-ecr.sh --fluss-only --fluss-version 0.9.0-incubating
+source ./default.env.sh --fluss-version 0.9.0-incubating
+./push-images-to-ecr.sh --fluss-only
 ```
 
 Manual pull/push (replace `VERSION` with your tag, e.g. `0.9.0-incubating`):
