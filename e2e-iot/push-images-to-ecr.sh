@@ -23,9 +23,12 @@ set -euo pipefail
 # 2. fluss (Apache Fluss image)
 #
 # Usage:
-#   ./push-images-to-ecr.sh --all              # Push both images
-#   ./push-images-to-ecr.sh --producer-only    # Push only producer image
-#   ./push-images-to-ecr.sh --fluss-only       # Push only Fluss image
+#   ./push-images-to-ecr.sh --all [--fluss-version VERSION]
+#   ./push-images-to-ecr.sh --producer-only [--fluss-version VERSION]
+#   ./push-images-to-ecr.sh --fluss-only [--fluss-version VERSION]
+#
+# Fluss version defaults to 0.9.0-incubating (or FLUSS_VERSION env var).
+# The given version is pulled from Docker Hub (apache/fluss:VERSION) and pushed to ECR.
 #
 # IMPORTANT: This script must be run from the e2e-platform-aws directory
 
@@ -33,7 +36,6 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BASE_DIR="${SCRIPT_DIR}"
 DEMO_DIR="${BASE_DIR}/fluss_flink_realtime"
 AWS_REGION=${AWS_REGION:-us-west-2}
-FLUSS_VERSION=${FLUSS_VERSION:-0.8.0-incubating}
 ECR_INFO_FILE="${BASE_DIR}/ecr-repositories.txt"
 
 # Colors for output
@@ -50,42 +52,80 @@ if [ ! -d "${DEMO_DIR}" ]; then
     exit 1
 fi
 
-# Validate we're running from e2e-platform-aws directory
-EXPECTED_BASE_NAME="e2e-platform-aws"
+# Validate we're running from the benchmark root (e2e-platform-aws or e2e-iot)
 ACTUAL_BASE_NAME=$(basename "${BASE_DIR}")
-if [ "${ACTUAL_BASE_NAME}" != "${EXPECTED_BASE_NAME}" ]; then
-    echo -e "${RED}Error: Script must be run from the ${EXPECTED_BASE_NAME} directory${NC}"
-    echo -e "${RED}Current directory: ${BASE_DIR}${NC}"
-    echo -e "${RED}Please run: cd ${EXPECTED_BASE_NAME} && ./push-images-to-ecr.sh${NC}"
-    exit 1
-fi
+case "${ACTUAL_BASE_NAME}" in
+    e2e-platform-aws|e2e-iot) ;;
+    *)
+        echo -e "${RED}Error: Script must be run from e2e-platform-aws or e2e-iot directory${NC}"
+        echo -e "${RED}Current directory: ${BASE_DIR}${NC}"
+        exit 1
+        ;;
+esac
 
 # Parse command line arguments
 PUSH_DEMO=false
 PUSH_FLUSS=false
+MODE_SET=false
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 
-case "${1:-}" in
-    --all)
-        PUSH_DEMO=true
-        PUSH_FLUSS=true
-        ;;
-    --producer-only)
-        PUSH_DEMO=true
-        PUSH_FLUSS=false
-        ;;
-    --fluss-only)
-        PUSH_DEMO=false
-        PUSH_FLUSS=true
-        ;;
-    *)
-        echo -e "${RED}Error: Missing or invalid argument${NC}"
-        echo -e "Usage:"
-        echo -e "  $0 --all            # Push both images"
-        echo -e "  $0 --producer-only  # Push only producer image"
-        echo -e "  $0 --fluss-only     # Push only Fluss image"
-        exit 1
-        ;;
-esac
+usage() {
+    echo -e "Usage:"
+    echo -e "  $0 --all              # Push both images"
+    echo -e "  $0 --producer-only    # Push only producer image"
+    echo -e "  $0 --fluss-only       # Push only Fluss image"
+    echo -e ""
+    echo -e "Options:"
+    echo -e "  --fluss-version VER   Fluss image tag to pull and push (default: 0.9.0-incubating)"
+    echo -e "                        Also accepts env FLUSS_VERSION"
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --all)
+            PUSH_DEMO=true
+            PUSH_FLUSS=true
+            MODE_SET=true
+            shift
+            ;;
+        --producer-only)
+            PUSH_DEMO=true
+            PUSH_FLUSS=false
+            MODE_SET=true
+            shift
+            ;;
+        --fluss-only)
+            PUSH_DEMO=false
+            PUSH_FLUSS=true
+            MODE_SET=true
+            shift
+            ;;
+        --fluss-version)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}Error: --fluss-version requires a value${NC}"
+                usage
+                exit 1
+            fi
+            FLUSS_VERSION="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown argument: $1${NC}"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ "${MODE_SET}" = false ]; then
+    echo -e "${RED}Error: Missing mode argument (--all, --producer-only, or --fluss-only)${NC}"
+    usage
+    exit 1
+fi
 
 echo -e "${GREEN}=== Building and Pushing Images to ECR ===${NC}\n"
 if [ "$PUSH_DEMO" = true ] && [ "$PUSH_FLUSS" = true ]; then
@@ -110,7 +150,8 @@ FLUSS_REPO="${ECR_BASE}/fluss"
 echo -e "${YELLOW}AWS Account ID: ${AWS_ACCOUNT_ID}${NC}"
 echo -e "${YELLOW}AWS Region: ${AWS_REGION}${NC}"
 echo -e "${YELLOW}Demo Repository: ${DEMO_REPO}${NC}"
-echo -e "${YELLOW}Fluss Repository: ${FLUSS_REPO}${NC}\n"
+echo -e "${YELLOW}Fluss Repository: ${FLUSS_REPO}${NC}"
+echo -e "${YELLOW}Fluss Version: ${FLUSS_VERSION}${NC}\n"
 
 # Setup Docker buildx for cross-platform builds (ARM64 -> linux/amd64 for AWS)
 echo -e "${YELLOW}[1/6] Setting up Docker buildx for cross-platform builds...${NC}"
@@ -150,7 +191,7 @@ if [ "$PUSH_DEMO" = true ]; then
     echo -e "${YELLOW}[4/6] Building producer application image...${NC}"
     echo -e "${YELLOW}Step 1: Building JAR from source (clean build)...${NC}"
     cd "${DEMO_DIR}"
-    mvn clean package
+    mvn clean package -Dfluss.version="${FLUSS_VERSION}"
     JAR_FILE=$(find "${DEMO_DIR}/target" -name "fluss-flink-realtime-demo*.jar" -type f 2>/dev/null | head -1)
     if [ -z "${JAR_FILE}" ] || [ ! -f "${JAR_FILE}" ]; then
         echo -e "${RED}Error: JAR file not found after build${NC}"
@@ -255,9 +296,11 @@ if [ "$PUSH_FLUSS" = true ]; then
 # Fluss Image Repository
 FLUSS_IMAGE_REPOSITORY="${FLUSS_REPO}"
 FLUSS_IMAGE_VERSION="${FLUSS_VERSION}"
+FLUSS_VERSION="${FLUSS_VERSION}"
 
 # For terraform.tfvars:
 fluss_image_repository = "${FLUSS_REPO}"
+fluss_version = "${FLUSS_VERSION}"
 use_ecr_for_fluss = true
 
 EOF
@@ -283,7 +326,12 @@ if [ "$PUSH_DEMO" = true ]; then
 fi
 if [ "$PUSH_FLUSS" = true ]; then
     echo -e "  fluss_image_repository = \"${FLUSS_REPO}\""
+    echo -e "  fluss_version = \"${FLUSS_VERSION}\""
     echo -e "  use_ecr_for_fluss = true"
+    echo -e ""
+    echo -e "Set version for deploy:"
+    echo -e "  export FLUSS_VERSION=\"${FLUSS_VERSION}\""
+    echo -e "  source ${BASE_DIR}/default.env.sh"
 fi
 echo -e ""
 

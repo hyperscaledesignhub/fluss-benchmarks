@@ -23,8 +23,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-cd "${PROJECT_ROOT}"
+DEMO_DIR="${SCRIPT_DIR}"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+cd "${DEMO_DIR}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -42,18 +43,18 @@ if ! command -v mvn &> /dev/null; then
     exit 1
 fi
 
-if [ ! -d "demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating" ]; then
-    echo -e "${RED}ERROR: Fluss 0.8.0 not found at demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating${NC}"
-    echo "Please extract fluss-0.8.0-incubating.tgz to that location"
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
+FLUSS_DIR="${FLUSS_HOME:-${REPO_ROOT}/fluss-${FLUSS_VERSION}}"
+if [ ! -d "${FLUSS_DIR}" ]; then
+    echo -e "${RED}ERROR: Fluss ${FLUSS_VERSION} not found at ${FLUSS_DIR}${NC}"
+    echo "Extract fluss-${FLUSS_VERSION}.tgz there or set FLUSS_HOME to your Fluss install"
     exit 1
 fi
-
-FLUSS_DIR="${PROJECT_ROOT}/demos/demo/deploy_local_kind_fluss/fluss-0.8.0-incubating"
-JAR_PATH="${SCRIPT_DIR}/target/fluss-flink-realtime-demo.jar"
+JAR_PATH="${DEMO_DIR}/target/fluss-flink-realtime-demo.jar"
 
 # Build the JAR
 echo -e "${YELLOW}[2/7] Building demo JAR...${NC}"
-mvn -pl demos/demo/fluss_flink_realtime_demo -am clean package -DskipTests
+mvn -f "${DEMO_DIR}/pom.xml" clean package -DskipTests -Dfluss.version="${FLUSS_VERSION}"
 if [ ! -f "${JAR_PATH}" ]; then
     echo -e "${RED}ERROR: JAR not found at ${JAR_PATH}${NC}"
     exit 1
@@ -138,7 +139,7 @@ java --add-opens=java.base/java.util=ALL-UNNAMED \
      --rate 10000 \
      --writer-threads 4 \
      --flush 10000 \
-     --stats 50000 &
+     --stats-interval 10 &
 PRODUCER_PID=$!
 
 echo "Producer PID: ${PRODUCER_PID}"
@@ -147,7 +148,7 @@ sleep 10
 echo ""
 
 # Check if Flink is available
-FLINK_DIR="${PROJECT_ROOT}/flink-1.20.3"
+FLINK_DIR="${FLINK_HOME:-${REPO_ROOT}/flink-1.20.3}"
 if [ ! -d "${FLINK_DIR}" ]; then
     echo -e "${YELLOW}[7/7] Flink not found at ${FLINK_DIR}${NC}"
     echo "Skipping Flink job. You can run it manually:"

@@ -18,12 +18,42 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to download Fluss Helm chart
-# The chart will be downloaded and extracted to helm-charts/fluss directory
+# Optional: download the official Apache Fluss Helm chart for offline use.
+# Normal deployments use the public chart repo directly (see k8s/deploy.sh).
+# The chart is extracted to helm-charts/fluss/ (gitignored).
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 HELM_CHARTS_DIR="${SCRIPT_DIR}/helm-charts"
-FLUSS_VERSION=${FLUSS_VERSION:-0.8.0-incubating}
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
+
+usage() {
+    echo "Usage: $0 [--fluss-version VERSION]"
+    echo "  Default version: 0.9.0-incubating (or FLUSS_VERSION env var)"
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --fluss-version)
+            if [ $# -lt 2 ]; then
+                echo "Error: --fluss-version requires a value"
+                usage
+                exit 1
+            fi
+            FLUSS_VERSION="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown argument: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 CHART_URL="https://downloads.apache.org/incubator/fluss/helm-chart/fluss-${FLUSS_VERSION}.tgz"
 
 echo "Downloading Fluss Helm chart version ${FLUSS_VERSION}..."

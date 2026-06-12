@@ -26,8 +26,9 @@ WORKDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 KIND_CONFIG="${WORKDIR}/kind-cluster-config.yaml"
 ZK_MANIFEST="${WORKDIR}/zookeeper-kind.yaml"
 FLUSS_VALUES="${WORKDIR}/fluss-values-kind.yaml"
-FLUSS_CHART_VERSION=${FLUSS_CHART_VERSION:-0.8.0-incubating}
-FLUSS_IMAGE=${FLUSS_IMAGE:-apache/fluss:0.8.0-incubating}
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
+FLUSS_CHART_VERSION="${FLUSS_CHART_VERSION:-${FLUSS_VERSION}}"
+FLUSS_IMAGE="${FLUSS_IMAGE:-apache/fluss:${FLUSS_VERSION}}"
 
 cat <<'EOF' >"${KIND_CONFIG}"
 kind: Cluster

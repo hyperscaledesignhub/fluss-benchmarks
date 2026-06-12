@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -14,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-#!/bin/bash
 set -euo pipefail
 
 # Deployment script for Kubernetes resources
@@ -27,7 +26,32 @@ K8S_DIR="${SCRIPT_DIR}"
 NAMESPACE="${1:-fluss}"
 DEMO_IMAGE_REPO="${2:-}"
 DEMO_IMAGE_TAG="${3:-latest}"
-FLUSS_IMAGE_REPO="${4:-apache/fluss:0.8.0-incubating}"
+FLUSS_IMAGE_REPO="${4:-apache/fluss:0.9.0-incubating}"
+
+# Resolve demo image repo when not passed (required for Flink copy-job-jar init container)
+if [ -z "${DEMO_IMAGE_REPO}" ]; then
+    DEFAULT_ENV="${SCRIPT_DIR}/../../default.env.sh"
+    if [ -f "${DEFAULT_ENV}" ]; then
+        # shellcheck source=/dev/null
+        source "${DEFAULT_ENV}"
+    elif command -v terraform &> /dev/null && [ -d "${SCRIPT_DIR}/../terraform" ]; then
+        DEMO_IMAGE_REPO="$(terraform -chdir="${SCRIPT_DIR}/../terraform" output -raw demo_image_repository 2>/dev/null || true)"
+    fi
+    if [ -z "${DEMO_IMAGE_REPO}" ] && command -v aws &> /dev/null; then
+        AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)"
+        AWS_REGION="${REGION:-us-west-2}"
+        if [ -n "${AWS_ACCOUNT_ID}" ]; then
+            DEMO_IMAGE_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fluss-demo"
+        fi
+    fi
+fi
+
+if [ -z "${DEMO_IMAGE_REPO}" ]; then
+    echo "ERROR: DEMO_IMAGE_REPO is not set."
+    echo "  source benchmark/e2e-platform-aws/default.env.sh"
+    echo "  or: export DEMO_IMAGE_REPO=<account>.dkr.ecr.<region>.amazonaws.com/fluss-demo"
+    exit 1
+fi
 
 # Export variables for envsubst
 export NAMESPACE
@@ -64,8 +88,73 @@ kubectl apply -f "${K8S_DIR}/zookeeper/zookeeper.yaml"
 echo "Waiting for ZooKeeper to be ready..."
 kubectl wait --for=condition=ready pod -l app=zookeeper -n ${NAMESPACE} --timeout=120s || true
 
+# Load FLUSS_IMAGE_TAG from default.env.sh when using ECR repo without an inline tag
+if [ -z "${FLUSS_IMAGE_TAG:-}" ]; then
+    DEFAULT_ENV="${SCRIPT_DIR}/../../default.env.sh"
+    if [ -f "${DEFAULT_ENV}" ]; then
+        # shellcheck source=/dev/null
+        source "${DEFAULT_ENV}"
+    fi
+fi
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
+FLUSS_IMAGE_TAG="${FLUSS_IMAGE_TAG:-${FLUSS_VERSION}}"
+
+# StatefulSet volumeClaimTemplates are immutable. If Fluss was first installed without
+# persistence, helm upgrade cannot add PVCs — recreate the StatefulSets before Helm.
+ensure_fluss_persistence_sts() {
+    local sts_name=$1
+    local pvc_prefix=$2
+
+    if ! kubectl get sts "${sts_name}" -n "${NAMESPACE}" &>/dev/null; then
+        return 0
+    fi
+
+    local vct_name replicas pvc_count
+    vct_name=$(kubectl get sts "${sts_name}" -n "${NAMESPACE}" -o jsonpath='{.spec.volumeClaimTemplates[0].metadata.name}' 2>/dev/null || true)
+    replicas=$(kubectl get sts "${sts_name}" -n "${NAMESPACE}" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")
+    pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | grep -c "${pvc_prefix}" || true)
+
+    if [ -z "${vct_name}" ]; then
+        echo "  ${sts_name}: no volumeClaimTemplates — recreating to enable NVMe persistence"
+        kubectl delete sts "${sts_name}" -n "${NAMESPACE}" --cascade=orphan --wait=true
+    elif [ "${pvc_count}" -lt "${replicas}" ]; then
+        echo "  ${sts_name}: ${pvc_count}/${replicas} PVCs found — recreating so PVCs bind to PVs"
+        kubectl delete sts "${sts_name}" -n "${NAMESPACE}" --cascade=orphan --wait=true
+    fi
+}
+
 # 3. Deploy Fluss via Helm
 echo "[3/8] Deploying Fluss via Helm..."
+FLUSS_CHART_VERSION="${FLUSS_CHART_VERSION:-${FLUSS_VERSION}}"
+# The published chart at downloads.apache.org (0.9.0-incubating) ignores persistence.enabled
+# and always uses emptyDir. Use a chart with volumeClaimTemplates (vendored or fluss repo helm/).
+if [ -z "${FLUSS_CHART_PATH:-}" ]; then
+    if [ -f "${SCRIPT_DIR}/../helm-charts/fluss/Chart.yaml" ]; then
+        FLUSS_CHART_PATH="${SCRIPT_DIR}/../helm-charts/fluss"
+    elif [ -f "${SCRIPT_DIR}/../../../../helm/Chart.yaml" ]; then
+        FLUSS_CHART_PATH="${SCRIPT_DIR}/../../../../helm"
+    fi
+fi
+if [ -z "${FLUSS_CHART_PATH:-}" ] || [ ! -f "${FLUSS_CHART_PATH}/Chart.yaml" ]; then
+    echo "ERROR: Fluss Helm chart with persistence support not found."
+    echo "  Set FLUSS_CHART_PATH or place chart at high-infra/helm-charts/fluss (benchmarks repo)"
+    echo "  or use apache/fluss checkout with helm/ (fluss main repo)."
+    exit 1
+fi
+echo "Using Fluss Helm chart: ${FLUSS_CHART_PATH}"
+
+echo "Ensuring Fluss StatefulSets can use NVMe persistence..."
+ensure_fluss_persistence_sts "tablet-server" "data-tablet-server"
+kubectl delete pod -n "${NAMESPACE}" -l 'app.kubernetes.io/component=tablet' --ignore-not-found --wait=false 2>/dev/null || true
+
+FLUSS_HELM_SET=(
+    --set persistence.enabled=true
+    --set persistence.coordinatorEnabled=false
+    --set persistence.storageClass=local-storage
+    --set persistence.size=500Gi
+    --set configurationOverrides."zookeeper\.address"="zk-svc.${NAMESPACE}.svc.cluster.local:2181"
+)
+
 if [ -n "${FLUSS_IMAGE_REPO}" ]; then
     # Extract registry, repository, and tag from image
     if [[ "${FLUSS_IMAGE_REPO}" == *".dkr.ecr."* ]]; then
@@ -75,9 +164,9 @@ if [ -n "${FLUSS_IMAGE_REPO}" ]; then
             FLUSS_REPO_WITHOUT_TAG="${FLUSS_IMAGE_REPO%%:*}"
             FLUSS_TAG="${FLUSS_IMAGE_REPO##*:}"
         else
-            # No tag, use default
+            # No tag — use FLUSS_IMAGE_TAG (must match push-images-to-ecr.sh)
             FLUSS_REPO_WITHOUT_TAG="${FLUSS_IMAGE_REPO}"
-            FLUSS_TAG="0.8.0-incubating"
+            FLUSS_TAG="${FLUSS_IMAGE_TAG}"
         fi
         # For ECR, registry is empty and repository is the full ECR URL without tag
         FLUSS_REGISTRY=""
@@ -89,30 +178,32 @@ if [ -n "${FLUSS_IMAGE_REPO}" ]; then
             FLUSS_TAG="${FLUSS_IMAGE_REPO##*:}"
         else
             FLUSS_REPO="${FLUSS_IMAGE_REPO}"
-            FLUSS_TAG="0.8.0-incubating"
+            FLUSS_TAG="${FLUSS_IMAGE_TAG}"
         fi
         FLUSS_REGISTRY="docker.io"
     fi
     
-    helm upgrade --install fluss "${SCRIPT_DIR}/../helm-charts/fluss" \
+    helm upgrade --install fluss "${FLUSS_CHART_PATH}" \
         --namespace ${NAMESPACE} \
         --set image.registry="${FLUSS_REGISTRY}" \
         --set image.repository="${FLUSS_REPO}" \
         --set image.tag="${FLUSS_TAG}" \
-        --set persistence.enabled=true \
-        --set persistence.storageClass=local-storage \
-        --set persistence.size=500Gi \
-        --set configurationOverrides."zookeeper\.address"="zk-svc.${NAMESPACE}.svc.cluster.local:2181" \
+        "${FLUSS_HELM_SET[@]}" \
         --wait=false
 else
-    helm upgrade --install fluss "${SCRIPT_DIR}/../helm-charts/fluss" \
+    helm upgrade --install fluss "${FLUSS_CHART_PATH}" \
         --namespace ${NAMESPACE} \
-        --set persistence.enabled=true \
-        --set persistence.storageClass=local-storage \
-        --set persistence.size=500Gi \
-        --set configurationOverrides."zookeeper\.address"="zk-svc.${NAMESPACE}.svc.cluster.local:2181" \
+        "${FLUSS_HELM_SET[@]}" \
         --wait=false
 fi
+
+echo "Waiting for Fluss PVCs to bind to local NVMe PVs..."
+TABLET_REPLICAS=$(kubectl get sts tablet-server -n "${NAMESPACE}" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "3")
+for i in $(seq 0 $((TABLET_REPLICAS - 1))); do
+    kubectl wait --for=jsonpath='{.status.phase}'=Bound "pvc/data-tablet-server-${i}" -n "${NAMESPACE}" --timeout=180s || {
+        echo "WARNING: PVC data-tablet-server-${i} not bound — run 04-verify-storage.sh for details"
+    }
+done
 
 # 4. Deploy Flink cluster
 echo "[4/8] Deploying Flink cluster..."
@@ -237,10 +328,10 @@ if [ -f "${K8S_DIR}/monitoring/grafana-dashboard.yaml" ]; then
                 -d "${DASHBOARD_PAYLOAD}" 2>/dev/null || echo "")
             
             if echo "${IMPORT_RESPONSE}" | grep -q '"status":"success"'; then
-                echo "  ✓ Dashboard imported successfully via Grafana API!"
+                echo "  Dashboard imported successfully via Grafana API"
             else
-                echo "  ⚠ Dashboard import via API failed (may need manual import)"
-                echo "  Dashboard ConfigMap is deployed, Grafana should auto-discover it"
+                echo "  WARNING: Dashboard import via API failed; may need manual import"
+                echo "  Dashboard ConfigMap is deployed; Grafana should auto-discover it"
             fi
         else
             echo "  ⚠ Could not extract dashboard JSON from ConfigMap"
@@ -253,12 +344,22 @@ else
     echo "  No Grafana dashboard YAML found, skipping..."
 fi
 
-# 8. Wait for components to be ready
-echo "[8/8] Waiting for components to be ready..."
-echo "  Waiting for Flink JobManager..."
-kubectl wait --for=condition=ready pod -l app=flink,component=jobmanager -n ${NAMESPACE} --timeout=300s || true
-echo "  Waiting for Flink TaskManagers..."
-kubectl wait --for=condition=ready pod -l app=flink,component=taskmanager -n ${NAMESPACE} --timeout=300s || true
+# 8. Quick readiness check (03-deploy-components.sh performs full waits)
+echo "[8/8] Checking component status..."
+wait_for_pods() {
+    local label="$1"
+    local description="$2"
+    local timeout="${3:-60s}"
+    echo "  Waiting for ${description}..."
+    # Ignore SIGINT during kubectl wait so Ctrl+C does not abort the script with a spurious error
+    trap 'echo "  Interrupted while waiting for '"${description}"'; continuing..."; return 0' INT
+    kubectl wait --for=condition=ready pod -l "${label}" -n "${NAMESPACE}" --timeout="${timeout}" 2>/dev/null || {
+        echo "  WARNING: ${description} not ready yet; check with: kubectl get pods -n ${NAMESPACE} -l ${label}"
+    }
+    trap - INT
+}
+wait_for_pods "app=flink,component=jobmanager" "Flink JobManager" "60s"
+wait_for_pods "app=flink,component=taskmanager" "Flink TaskManagers" "60s"
 
 echo ""
 echo "=== Deployment Complete ==="

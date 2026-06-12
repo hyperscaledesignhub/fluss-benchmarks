@@ -23,14 +23,32 @@ K8S_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 FLINK_DIR="${K8S_DIR}/flink"
 
 NAMESPACE="${NAMESPACE:-fluss}"
-DEMO_IMAGE_REPO="${DEMO_IMAGE_REPO:-}"
 DEMO_IMAGE_TAG="${DEMO_IMAGE_TAG:-latest}"
-FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-apache/fluss:0.8.0-incubating}"
 AWS_REGION="${REGION:-us-west-2}"
+
+# Load ECR image repos from default.env.sh when not already exported
+if [ -z "${DEMO_IMAGE_REPO:-}" ] || [ -z "${FLUSS_IMAGE_REPO:-}" ]; then
+    DEFAULT_ENV="$(cd "${SCRIPT_DIR}/../../.." && pwd)/default.env.sh"
+    if [ -f "${DEFAULT_ENV}" ]; then
+        # shellcheck source=/dev/null
+        source "${DEFAULT_ENV}"
+    fi
+fi
+
+DEMO_IMAGE_REPO="${DEMO_IMAGE_REPO:-}"
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
+FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-apache/fluss:${FLUSS_VERSION}}"
+
+if [ -z "${DEMO_IMAGE_REPO}" ]; then
+    echo "ERROR: DEMO_IMAGE_REPO is not set."
+    echo "  source benchmark/e2e-platform-aws/default.env.sh"
+    exit 1
+fi
 
 echo "=== Step 3: Deploying all components ==="
 echo "Namespace: ${NAMESPACE}"
 echo "Demo Image (for Flink job submission): ${DEMO_IMAGE_REPO:-<not set>}:${DEMO_IMAGE_TAG}"
+echo "Fluss Version: ${FLUSS_VERSION}"
 echo "Fluss Image: ${FLUSS_IMAGE_REPO}"
 echo "Flink Cluster Image: apache/flink:1.20.3-scala_2.12-java17 (hardcoded)"
 echo ""
@@ -61,7 +79,7 @@ cd "${K8S_DIR}"
 # Call deploy.sh - it will skip producer deployment since deploy.sh checks for DEMO_IMAGE_REPO
 # Flink cluster uses hardcoded image: apache/flink:1.20.3-scala_2.12-java17
 # Pass DEMO_IMAGE_REPO so Flink init container can use it
-./deploy.sh "${NAMESPACE}" "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
+bash "${K8S_DIR}/deploy.sh" "${NAMESPACE}" "${DEMO_IMAGE_REPO}" "${DEMO_IMAGE_TAG}" "${FLUSS_IMAGE_REPO}"
 
 # Wait for critical components to be ready
 echo ""
