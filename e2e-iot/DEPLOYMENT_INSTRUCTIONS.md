@@ -22,6 +22,8 @@ This document provides step-by-step instructions to deploy the complete Fluss pl
 
 ## Prerequisites
 
+Paths in this guide assume the `fluss-benchmarks` repository root. The E2E IoT benchmark lives under `e2e-iot/`.
+
 - AWS CLI configured with appropriate credentials
 - kubectl installed and configured
 - terraform installed (>= 1.0)
@@ -192,7 +194,7 @@ This script:
 ```
 
 This script:
-- Changes to the e2e-platform-aws directory
+- Changes to the e2e-iot directory
 - Launches Grafana port-forward to view end-to-end metrics
 - Opens access to Grafana dashboard for platform monitoring
 - Displays real-time metrics and dashboards

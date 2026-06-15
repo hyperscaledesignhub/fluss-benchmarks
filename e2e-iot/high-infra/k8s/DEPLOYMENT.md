@@ -150,7 +150,7 @@ done
 Deploy 8 producer instances (2 per node across 4 producer nodes) with 128 buckets:
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 
 # Deploy multi-instance producer (8 instances total, 2 per node, 128 buckets)
 export BUCKETS=128
@@ -183,7 +183,7 @@ kubectl logs -n fluss -l app=fluss-producer --tail=50
 Submit the Flink aggregator job:
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/flink
+cd e2e-iot/high-infra/k8s/flink
 
 # Submit Flink job (automatically configures S3 checkpoints)
 ./submit-job-from-image.sh

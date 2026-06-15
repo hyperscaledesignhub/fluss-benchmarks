@@ -22,6 +22,8 @@ This document describes the step-by-step deployment process for the Fluss high-i
 
 ## Prerequisites
 
+Paths in this guide assume the `fluss-benchmarks` repository root. AWS deployment assets live under `e2e-iot/high-infra/`.
+
 - Terraform infrastructure deployed (EKS cluster, node groups, ECR repositories)
 - `kubectl` configured and connected to the EKS cluster
 - `helm` installed
@@ -130,7 +132,7 @@ Deploy 8 producer instances (2 per node across 4 producer nodes) with 128 bucket
 ### Option 1: Use Multi-Instance Script (Recommended)
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 
 # Deploy 8 producer instances with 128 buckets
 export BUCKETS=128
@@ -162,7 +164,7 @@ export BUCKETS=128
 ### Option 2: Use Multi-Instance Script with Custom Parameters
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 
 # Deploy 8 producer instances with custom parameters
 export BUCKETS=128
@@ -207,7 +209,7 @@ kubectl port-forward -n fluss svc/fluss-producer-metrics 8080:8080
 Submit the Flink job that processes sensor data:
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/flink
+cd e2e-iot/high-infra/k8s/flink
 ./submit-job-from-image.sh
 ```
 
@@ -241,7 +243,7 @@ kubectl logs -n fluss -l app=flink,component=taskmanager -f
 Deploy the Grafana dashboard for monitoring:
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
+cd e2e-iot/high-infra/k8s/monitoring
 ./deploy-dashboard.sh
 ```
 
@@ -347,7 +349,7 @@ kubectl logs -n fluss -l app.kubernetes.io/component=tablet-server --tail=20
   ```
 - If JAR is missing, rebuild and push the image:
   ```bash
-  cd benchmark/e2e-platform-aws/high-infra/k8s/flink
+  cd e2e-iot/high-infra/k8s/flink
   ./build-and-push.sh
   ```
 - Then restart Flink pods to pull the new image
@@ -432,11 +434,11 @@ kubectl logs -n fluss -l app.kubernetes.io/component=tablet-server -f
 ```bash
 # Restart producer (using optimal configuration)
 kubectl delete job -n fluss fluss-producer
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 ./deploy-producer-optimal.sh
 
 # Restart Flink job
-cd benchmark/e2e-platform-aws/high-infra/k8s/flink
+cd e2e-iot/high-infra/k8s/flink
 ./submit-job-from-image.sh
 ```
 
@@ -453,7 +455,7 @@ kubectl port-forward -n fluss svc/flink-jobmanager 8081:8081
 # Visit http://localhost:8081 and cancel job
 
 # Delete all components
-cd benchmark/e2e-platform-aws/high-infra/k8s
+cd e2e-iot/high-infra/k8s
 kubectl delete -f flink/
 kubectl delete -f zookeeper/
 helm uninstall fluss -n fluss

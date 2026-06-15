@@ -22,6 +22,8 @@ This guide explains how to test the Fluss producer and Flink job locally with th
 
 ## Prerequisites
 
+Paths in this guide assume the `fluss-benchmarks` repository root. The E2E IoT benchmark lives under `e2e-iot/`; the demo module is at `e2e-iot/fluss_flink_realtime`.
+
 1. **Maven** - For building the JAR
 2. **Fluss** - Extracted to `$FLUSS_HOME/` or `fluss-<version>` under the repo root (default version: `0.9.0-incubating`)
 3. **Flink 1.20.3** (optional) - For running Flink job locally
@@ -56,8 +58,8 @@ This script will:
 ### Step 1: Build the JAR
 
 ```bash
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
-mvn -f benchmark/e2e-platform-aws/fluss_flink_realtime/pom.xml clean package
+cd e2e-iot/fluss_flink_realtime
+mvn -f pom.xml clean package
 ```
 
 ### Step 2: Start Fluss Local Cluster
@@ -76,7 +78,7 @@ nc -z localhost 9123
 ### Step 3: Create Table with 48 Buckets
 
 ```bash
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
+cd e2e-iot/fluss_flink_realtime
 java --add-opens=java.base/java.util=ALL-UNNAMED \
      --add-opens=java.base/java.lang=ALL-UNNAMED \
      --add-opens=java.base/java.nio=ALL-UNNAMED \
@@ -154,7 +156,7 @@ Terminal 4 (Instance 3):
 # Start Flink cluster (if not running)
 $FLINK_HOME/bin/start-cluster.sh
 
-# Submit Flink job (run from benchmark/e2e-platform-aws/fluss_flink_realtime)
+# Submit Flink job (run from e2e-iot/fluss_flink_realtime)
 $FLINK_HOME/bin/flink run \
     -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
     target/fluss-flink-realtime-demo.jar \

@@ -26,7 +26,7 @@
 
 ## Step-by-Step Instructions
 
-**Note:** Paths assume the `fluss-benchmarks` repository root. The demo module is at `benchmark/e2e-platform-aws/fluss_flink_realtime`.
+**Note:** Paths assume the `fluss-benchmarks` repository root. The E2E IoT benchmark lives under `e2e-iot/`; the demo module is at `e2e-iot/fluss_flink_realtime`.
 
 ### Step 1: Deploy Fluss on Kind Cluster
 This script will:
@@ -36,7 +36,7 @@ This script will:
 - Wait for services to be ready
 
 ```bash
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
+cd e2e-iot/fluss_flink_realtime
 ./run_kind_demo.sh
 ```
 
@@ -62,7 +62,7 @@ This script will:
 - Deploy producer and Flink aggregator as Kubernetes Jobs
 
 ```bash
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
+cd e2e-iot/fluss_flink_realtime
 ./k8s/deploy_k8s_jobs.sh
 ```
 
@@ -180,10 +180,10 @@ kubectl logs coordinator-server-0 | grep "advertised.listeners"
 3. Restart coordinator: `kubectl delete pod coordinator-server-0`
 
 ### If you see ClassNotFoundException:
-1. Rebuild JAR: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && mvn -f pom.xml clean package`
-2. Rebuild Docker image: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && docker build -t fluss-demo:latest .`
+1. Rebuild JAR: `cd e2e-iot/fluss_flink_realtime && mvn -f pom.xml clean package`
+2. Rebuild Docker image: `cd e2e-iot/fluss_flink_realtime && docker build -t fluss-demo:latest .`
 3. Reload into Kind: `kind load docker-image fluss-demo:latest --name fluss-kind`
-4. Redeploy jobs: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && kubectl delete job fluss-producer flink-aggregator && ./k8s/deploy_k8s_jobs.sh`
+4. Redeploy jobs: `cd e2e-iot/fluss_flink_realtime && kubectl delete job fluss-producer flink-aggregator && ./k8s/deploy_k8s_jobs.sh`
 
 ---
 

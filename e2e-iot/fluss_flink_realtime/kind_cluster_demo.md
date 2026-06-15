@@ -25,7 +25,7 @@ This guide walks through deploying Fluss on a local Kind cluster and running the
 For a fully automated setup, run:
 
 ```bash
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
+cd e2e-iot/fluss_flink_realtime
 ./run_kind_demo.sh
 ```
 
@@ -51,17 +51,17 @@ See the script output for monitoring commands and cleanup instructions.
 
 ## Step 1: Build the Demo JAR
 
-From the repository root:
+From the `fluss-benchmarks` repository root:
 
 ```bash
-mvn -f benchmark/e2e-platform-aws/fluss_flink_realtime/pom.xml clean package
+mvn -f e2e-iot/fluss_flink_realtime/pom.xml clean package
 ```
 
-Output: `benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar`
+Output: `e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar`
 
 ## Step 2: Deploy Fluss on Kind
 
-From `benchmark/e2e-platform-aws/fluss_flink_realtime`:
+From `e2e-iot/fluss_flink_realtime`:
 
 ```bash
 # Deploy Fluss on Kind (this script creates the cluster, deploys ZooKeeper, and installs Fluss)
@@ -88,13 +88,13 @@ Verify Fluss is accessible:
 kubectl get svc -n default | grep fluss
 
 # Test connectivity (should return metadata)
-java -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+java -cp e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123
 ```
 
 ## Step 3: Start Local Flink Cluster
 
-From the repository root:
+From the `fluss-benchmarks` repository root:
 
 ```bash
 $FLINK_HOME/bin/start-cluster.sh
@@ -109,10 +109,10 @@ curl http://localhost:8081/overview
 
 ## Step 4: Run the Producer (Terminal 1)
 
-From the repository root, start the producer that writes to Fluss on Kind:
+From the `fluss-benchmarks` repository root, start the producer that writes to Fluss on Kind:
 
 ```bash
-java -jar benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+java -jar e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 \
   --database iot \
   --table sensor_readings \
@@ -131,12 +131,12 @@ The producer will:
 
 ## Step 5: Run the Flink Aggregation Job (Terminal 2)
 
-From the repository root, in a **separate terminal**, submit the Flink job:
+From the `fluss-benchmarks` repository root, in a **separate terminal**, submit the Flink job:
 
 ```bash
 $FLINK_HOME/bin/flink run \
   -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
-  benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+  e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 \
   --database iot \
   --table sensor_readings \
@@ -175,17 +175,17 @@ grep "SensorAggregate" $FLINK_HOME/log/flink-*-taskexecutor-*.log
 
 ```bash
 # List databases
-java -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+java -cp e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123
 
 # Peek at change log (while producer is running)
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+  -cp e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableLogPeek localhost:9123 iot sensor_readings 10
 
 # Peek at primary-key snapshot
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
+  -cp e2e-iot/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussPrimaryKeySnapshotPeek localhost:9123 iot sensor_readings 10
 ```
 

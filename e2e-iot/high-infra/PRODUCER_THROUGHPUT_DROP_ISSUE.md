@@ -100,7 +100,7 @@ The issue occurred after Fluss tablet servers were restarted:
 Recreated the Fluss table to force metadata refresh:
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 ./create-table.sh \
   --namespace fluss \
   --bootstrap coordinator-server-hs.fluss.svc.cluster.local:9124 \
@@ -121,7 +121,7 @@ Restarted all producer jobs to get fresh metadata:
 
 ```bash
 kubectl delete jobs -n fluss -l app=fluss-producer
-cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
+cd e2e-iot/high-infra/k8s/jobs
 TOTAL_PRODUCERS=8 PRODUCER_RATE=250000 ./deploy-producer-multi-instance.sh --wait
 ```
 
@@ -160,9 +160,9 @@ This:
 
 ## Related Files
 
-- Producer deployment script: `benchmark/e2e-platform-aws/high-infra/k8s/jobs/deploy-producer-multi-instance.sh`
-- Table creation script: `benchmark/e2e-platform-aws/high-infra/k8s/jobs/create-table.sh`
-- Producer job manifest: `benchmark/e2e-platform-aws/high-infra/k8s/jobs/producer-job.yaml`
+- Producer deployment script: `e2e-iot/high-infra/k8s/jobs/deploy-producer-multi-instance.sh`
+- Table creation script: `e2e-iot/high-infra/k8s/jobs/create-table.sh`
+- Producer job manifest: `e2e-iot/high-infra/k8s/jobs/producer-job.yaml`
 
 ## Key Takeaways
 

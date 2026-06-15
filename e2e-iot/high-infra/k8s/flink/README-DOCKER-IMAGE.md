@@ -39,12 +39,12 @@ This approach embeds the Flink job JAR directly in the Docker image for `local:/
 ### 1. Build and Push Image
 
 ```bash
-cd benchmark/e2e-platform-aws/high-infra/k8s/flink
+cd e2e-iot/high-infra/k8s/flink
 ./build-and-push.sh
 ```
 
 This will:
-- Build the JAR from `benchmark/e2e-platform-aws/fluss_flink_realtime`
+- Build the JAR from `e2e-iot/fluss_flink_realtime`
 - Create Docker image with JAR at `/opt/flink/usrlib/fluss-flink-realtime-demo.jar`
 - Push to ECR: `343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss-demo:latest`
 

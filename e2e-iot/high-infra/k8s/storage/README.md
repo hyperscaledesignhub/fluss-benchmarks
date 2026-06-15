@@ -44,7 +44,7 @@ The setup uses:
 Run the setup script:
 
 ```bash
-cd /path/to/benchmark/e2e-platform-aws/high-infra/k8s/storage
+cd /path/to/fluss-benchmarks/e2e-iot/high-infra/k8s/storage
 export NAMESPACE=fluss
 export TABLET_REPLICAS=3  # Match your tablet server replica count
 export STORAGE_SIZE=500Gi  # Adjust based on your NVMe drive size

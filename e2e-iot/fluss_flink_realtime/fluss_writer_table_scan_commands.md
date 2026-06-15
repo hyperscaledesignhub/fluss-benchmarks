@@ -21,7 +21,7 @@
 Working directory for all commands:
 
 ```
-cd benchmark/e2e-platform-aws/fluss_flink_realtime
+cd e2e-iot/fluss_flink_realtime
 ```
 
 ## 1. Build the demo jar

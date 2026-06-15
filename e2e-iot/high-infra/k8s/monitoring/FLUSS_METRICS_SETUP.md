@@ -119,7 +119,7 @@ If metrics don't appear, update the queries in the dashboard:
 
 1. **Edit the dashboard JSON:**
    ```bash
-   vim benchmark/e2e-platform-aws/high-infra/k8s/monitoring/fluss-flink-dashboard.json
+   vim e2e-iot/high-infra/k8s/monitoring/fluss-flink-dashboard.json
    ```
 
 2. **Find the panel** (e.g., "Fluss Coordinator - Request Rate")
@@ -128,7 +128,7 @@ If metrics don't appear, update the queries in the dashboard:
 
 4. **Redeploy dashboard:**
    ```bash
-   cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
+   cd e2e-iot/high-infra/k8s/monitoring
    ./deploy-dashboard.sh
    ```
 
@@ -222,7 +222,7 @@ Based on Fluss source code, these metrics should be available:
 
 1. Deploy the updated dashboard:
    ```bash
-   cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
+   cd e2e-iot/high-infra/k8s/monitoring
    ./deploy-dashboard.sh
    ```
 
