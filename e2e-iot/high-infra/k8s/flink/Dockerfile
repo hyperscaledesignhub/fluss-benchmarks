@@ -23,12 +23,14 @@
 # Stage 1: Build the JAR using Maven
 FROM --platform=linux/amd64 maven:3.9-eclipse-temurin-17 AS builder
 
+ARG FLUSS_VERSION=0.9.0-incubating
+
 WORKDIR /build
 
 COPY ../../../fluss_flink_realtime/pom.xml .
 COPY ../../../fluss_flink_realtime/src ./src
 
-RUN mvn clean package -DskipTests -f pom.xml
+RUN mvn clean package -DskipTests -Dfluss.version="${FLUSS_VERSION}" -f pom.xml
 
 # Stage 2: Create runtime image with Flink
 FROM --platform=linux/amd64 apache/flink:1.20.3-scala_2.12-java17

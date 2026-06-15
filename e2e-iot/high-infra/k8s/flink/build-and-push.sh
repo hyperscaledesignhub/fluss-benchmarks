@@ -45,6 +45,7 @@ if [ -z "${AWS_ACCOUNT_ID:-}" ]; then
 fi
 ECR_REPOSITORY="fluss-demo"
 IMAGE_TAG=${IMAGE_TAG:-latest}
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Go up from k8s/flink to 2-million-messages-per-second directory
 # k8s/flink -> k8s -> high-infra -> 2-million-messages-per-second
@@ -55,6 +56,7 @@ echo "  AWS Region: ${AWS_REGION}"
 echo "  AWS Account: ${AWS_ACCOUNT_ID}"
 echo "  ECR Repository: ${ECR_REPOSITORY}"
 echo "  Image Tag: ${IMAGE_TAG}"
+echo "  Fluss Version: ${FLUSS_VERSION}"
 echo "  Platform: linux/amd64"
 echo "  Demo Base Dir: ${DEMO_BASE_DIR}"
 echo ""
@@ -94,7 +96,7 @@ JAR_FILE=$(find "${DEMO_DIR}/target" -name "fluss-flink-realtime-demo*.jar" -typ
 if [ -z "${JAR_FILE}" ] || [ ! -f "${JAR_FILE}" ]; then
     echo -e "${YELLOW}JAR not found, building it first...${NC}"
     cd "${DEMO_DIR}"
-    mvn clean package -DskipTests
+    mvn clean package -DskipTests -Dfluss.version="${FLUSS_VERSION}"
     cd "${SCRIPT_DIR}"
     JAR_FILE=$(find "${DEMO_DIR}/target" -name "fluss-flink-realtime-demo*.jar" -type f | head -1)
 fi

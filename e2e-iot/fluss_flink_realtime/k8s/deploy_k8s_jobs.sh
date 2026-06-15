@@ -26,6 +26,7 @@ DEMO_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
 cd "${DEMO_DIR}"
 
 KIND_NAME=${KIND_NAME:-fluss-kind}
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 IMAGE_NAME="fluss-demo"
 IMAGE_TAG="latest"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
@@ -35,7 +36,7 @@ echo "=== Building and Deploying Fluss Demo Jobs to Kind ==="
 # Step 1: Build the demo JAR if needed
 if [ ! -f "${DEMO_DIR}/target/fluss-flink-realtime-demo.jar" ]; then
     echo "[1/5] Building demo JAR..."
-    mvn -f "${DEMO_DIR}/pom.xml" clean package
+    mvn -f "${DEMO_DIR}/pom.xml" clean package -Dfluss.version="${FLUSS_VERSION}"
 else
     echo "[1/5] Demo JAR exists, skipping build"
 fi

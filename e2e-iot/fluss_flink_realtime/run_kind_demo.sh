@@ -27,6 +27,7 @@ REPO_ROOT=$(cd "${SCRIPT_DIR}/../../.." && pwd)
 cd "${DEMO_DIR}"
 
 KIND_NAME=${KIND_NAME:-fluss-kind}
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 DEMO_JAR="${DEMO_DIR}/target/fluss-flink-realtime-demo.jar"
 FLINK_HOME="${FLINK_HOME:-${REPO_ROOT}/flink-1.20.3}"
 
@@ -41,7 +42,7 @@ echo -e "${GREEN}=== Fluss + Flink Kind Cluster Demo ===${NC}\n"
 # Step 1: Build demo JAR
 if [ ! -f "${DEMO_JAR}" ]; then
     echo -e "${YELLOW}[1/6] Building demo JAR...${NC}"
-    mvn -f "${DEMO_DIR}/pom.xml" clean package
+    mvn -f "${DEMO_DIR}/pom.xml" clean package -Dfluss.version="${FLUSS_VERSION}"
 else
     echo -e "${GREEN}[1/6] Demo JAR already exists, skipping build${NC}"
 fi
