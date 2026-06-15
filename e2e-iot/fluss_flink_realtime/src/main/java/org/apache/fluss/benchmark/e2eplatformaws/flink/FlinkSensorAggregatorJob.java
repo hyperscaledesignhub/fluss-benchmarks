@@ -241,7 +241,7 @@ public final class FlinkSensorAggregatorJob {
                        statusInt == 3 ? "MAINTENANCE" : "ERROR";
         Instant eventTime = Instant.ofEpochMilli(timestamp);
         
-        // Create metadata with default values (matching JDBCFlinkConsumer.java)
+        // Create metadata with default values (matching the full IoT sensor schema)
         SensorData.MetaData meta = new SensorData.MetaData(
             "AcmeSensors",  // manufacturer - default
             "X100",         // model - default
@@ -254,7 +254,7 @@ public final class FlinkSensorAggregatorJob {
     }
     
     /**
-     * Convert SensorAggregate to SensorRecord with all fields (adding defaults matching JDBCFlinkConsumer.java).
+     * Convert SensorAggregate to SensorRecord with all fields (adding defaults matching the full IoT sensor schema).
      * This creates a full SensorRecord that can be written to ClickHouse or other sinks.
      */
     private static SensorRecord toSensorRecord(SensorAggregate aggregate) {
@@ -265,13 +265,13 @@ public final class FlinkSensorAggregatorJob {
         int sensorIdInt = sensorIdStr.startsWith("sensor_") ? 
             Integer.parseInt(sensorIdStr.substring(7)) : 0;
         
-        // Device identifiers (matching JDBCFlinkConsumer.java)
+        // Device identifiers (matching the full IoT sensor schema)
         record.device_id = sensorIdStr;
         record.device_type = aggregate.sensorType;
         record.customer_id = "customer_0001"; // Default value
         record.site_id = "site_" + String.format("%03d", (sensorIdInt % 100) + 1);
         
-        // Location data - defaults (matching JDBCFlinkConsumer.java)
+        // Location data - defaults (matching the full IoT sensor schema)
         record.latitude = 0.0;
         record.longitude = 0.0;
         record.altitude = 0.0;
@@ -281,7 +281,7 @@ public final class FlinkSensorAggregatorJob {
         record.humidity = aggregate.avgHumidity;
         record.pressure = aggregate.avgPressure;
         
-        // Additional sensor readings - defaults (matching JDBCFlinkConsumer.java)
+        // Additional sensor readings - defaults (matching the full IoT sensor schema)
         record.co2_level = 400.0;
         record.noise_level = 50.0;
         record.light_level = 500.0;
@@ -290,7 +290,7 @@ public final class FlinkSensorAggregatorJob {
         // Device metrics
         record.battery_level = aggregate.avgBatteryLevel;
         
-        // Device metrics - defaults (matching JDBCFlinkConsumer.java)
+        // Device metrics - defaults (matching the full IoT sensor schema)
         record.signal_strength = -50.0;
         record.memory_usage = 50.0;
         record.cpu_usage = 30.0;
@@ -302,7 +302,7 @@ public final class FlinkSensorAggregatorJob {
         record.status = statusInt;
         record.error_count = 0; // Default value
         
-        // Network metrics - defaults (matching JDBCFlinkConsumer.java)
+        // Network metrics - defaults (matching the full IoT sensor schema)
         record.packets_sent = 0L;
         record.packets_received = 0L;
         record.bytes_sent = 0L;
@@ -312,7 +312,7 @@ public final class FlinkSensorAggregatorJob {
     }
     
     /**
-     * Convert integer sensor type to string (matching JDBCFlinkConsumer.java).
+     * Convert integer sensor type to string (matching the full IoT sensor schema).
      * 1=temperature, 2=humidity, 3=pressure, 4=motion, 5=light, 6=co2, 7=noise, 8=multisensor
      */
     private static String getSensorTypeString(int sensorType) {
@@ -639,7 +639,7 @@ public final class FlinkSensorAggregatorJob {
     }
 
     /**
-     * SensorRecord matching JDBCFlinkConsumer.java schema.
+     * SensorRecord matching the full IoT sensor schema schema.
      * Contains all fields needed for ClickHouse sink, with defaults added at sink level.
      */
     private static class SensorRecord implements java.io.Serializable {

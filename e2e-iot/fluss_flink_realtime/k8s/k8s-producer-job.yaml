@@ -59,10 +59,10 @@ spec:
         securityContext:
           runAsUser: 0  # Run as root to allow writing to /etc/hosts
         command:
-        - /app/entrypoint.sh
+        - /opt/flink/bin/entrypoint.sh
         args:
         - -jar
-        - /app/fluss-flink-realtime-demo.jar
+        - /opt/flink/usrlib/fluss-flink-realtime-demo.jar
         - --bootstrap
         - coordinator-server-hs.default.svc.cluster.local:9124
         - --database
@@ -75,8 +75,8 @@ spec:
         - "2000"
         - --flush
         - "5000"
-        - --stats
-        - "1000"
+        - --stats-interval
+        - "10"
         resources:
           requests:
             memory: "512Mi"

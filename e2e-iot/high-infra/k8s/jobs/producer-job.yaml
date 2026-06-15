@@ -84,8 +84,8 @@ spec:
               value: "${PRODUCER_RATE}"
             - name: PRODUCER_FLUSH_EVERY
               value: "${PRODUCER_FLUSH_EVERY}"
-            - name: PRODUCER_STATS_EVERY
-              value: "${PRODUCER_STATS_EVERY}"
+            - name: PRODUCER_STATS_INTERVAL_SECONDS
+              value: "${PRODUCER_STATS_INTERVAL_SECONDS}"
             - name: CLIENT_WRITER_BUFFER_MEMORY_SIZE
               value: "${CLIENT_WRITER_BUFFER_MEMORY_SIZE}"
             - name: CLIENT_WRITER_BATCH_SIZE
@@ -118,7 +118,7 @@ spec:
                    --rate "$PRODUCER_RATE" \
                    --writer-threads "$NUM_WRITER_THREADS" \
                    --flush "$PRODUCER_FLUSH_EVERY" \
-                   --stats "$PRODUCER_STATS_EVERY"
+                   --stats-interval "$PRODUCER_STATS_INTERVAL_SECONDS"
           ports:
             - name: metrics
               containerPort: 8080

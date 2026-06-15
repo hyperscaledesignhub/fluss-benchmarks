@@ -35,12 +35,16 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   # Uncomment and configure backend for remote state
   # backend "s3" {
   #   bucket = "your-terraform-state-bucket"
-  #   key    = "aws-deploy-fluss/terraform.tfstate"
+  #   key    = "fluss-e2e-platform-aws/terraform.tfstate"
   #   region = "us-west-2"
   # }
 }

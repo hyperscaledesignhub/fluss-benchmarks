@@ -34,9 +34,9 @@ variable "eks_cluster_name" {
 }
 
 variable "kubernetes_version" {
-  description = "Kubernetes version for EKS cluster"
+  description = "Kubernetes version for EKS cluster (must be a currently EKS-supported version)"
   type        = string
-  default     = "1.29"
+  default     = "1.35"
 }
 
 variable "namespace" {
@@ -48,7 +48,7 @@ variable "namespace" {
 variable "fluss_version" {
   description = "Fluss version to deploy"
   type        = string
-  default     = "0.8.0-incubating"
+  default     = "0.9.0-incubating"
 }
 
 variable "fluss_image_repository" {

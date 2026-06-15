@@ -119,7 +119,7 @@ If metrics don't appear, update the queries in the dashboard:
 
 1. **Edit the dashboard JSON:**
    ```bash
-   vim aws-deploy-fluss/high-infra/k8s/monitoring/fluss-flink-dashboard.json
+   vim benchmark/e2e-platform-aws/high-infra/k8s/monitoring/fluss-flink-dashboard.json
    ```
 
 2. **Find the panel** (e.g., "Fluss Coordinator - Request Rate")
@@ -128,11 +128,41 @@ If metrics don't appear, update the queries in the dashboard:
 
 4. **Redeploy dashboard:**
    ```bash
-   cd aws-deploy-fluss/high-infra/k8s/monitoring
+   cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
    ./deploy-dashboard.sh
    ```
 
 ## Common Issues
+
+### Issue: Flink/Producer Metrics Work but Coordinator/Tablet Metrics Are Empty
+
+**Root cause (fixed in helm chart):** Fluss servers did not enable the Prometheus metrics reporter, and
+Kubernetes Services/StatefulSets did not expose port `9249` named `metrics`. ServiceMonitors reference
+`port: metrics` — without that port on the Service, Prometheus has no scrape target.
+
+**Fix:** Re-deploy Fluss with the updated helm chart (`high-infra/helm-charts/fluss`):
+```bash
+cd high-infra/k8s
+# Re-apply PodMonitors (includes coordinator + tablet)
+kubectl apply -f monitoring/podmonitors.yaml
+kubectl apply -f monitoring/servicemonitors.yaml
+
+# Upgrade Fluss (uses vendored chart with metrics support)
+source ../default.env.sh --fluss-version 0.9.0-incubating
+helm upgrade fluss ../helm-charts/fluss -n fluss \
+  --reuse-values \
+  --set configurationOverrides."metrics\.reporters"="prometheus" \
+  --set configurationOverrides."metrics\.reporter\.prometheus\.port"="9249"
+
+# Restart pods so they pick up the new server.yaml + metrics port
+kubectl rollout restart sts/coordinator-server sts/tablet-server -n fluss
+```
+
+**Verify metrics endpoint directly:**
+```bash
+COORD_POD=$(kubectl get pod -n fluss -l app.kubernetes.io/component=coordinator -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n fluss "$COORD_POD" -- wget -qO- http://localhost:9249/metrics | grep fluss_coordinator | head
+```
 
 ### Issue: Metrics Not Appearing
 **Solution:**
@@ -192,7 +222,7 @@ Based on Fluss source code, these metrics should be available:
 
 1. Deploy the updated dashboard:
    ```bash
-   cd aws-deploy-fluss/high-infra/k8s/monitoring
+   cd benchmark/e2e-platform-aws/high-infra/k8s/monitoring
    ./deploy-dashboard.sh
    ```
 

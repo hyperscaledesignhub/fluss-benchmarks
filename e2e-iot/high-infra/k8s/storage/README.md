@@ -30,7 +30,8 @@ The setup uses:
 ## Prerequisites
 
 1. **Terraform Infrastructure**: The tablet server nodes must be deployed with NVMe drives mounted at:
-   - `/mnt/fluss-tablet-data/fluss/data` (primary data storage)
+   - `/opt/alldata` (NVMe mount point)
+   - `/opt/alldata/fluss/data` (primary data storage, used as PV local path)
 
 2. **Node Labels**: Tablet server nodes must have:
    - `fluss-component: tablet-server`
@@ -43,7 +44,7 @@ The setup uses:
 Run the setup script:
 
 ```bash
-cd /path/to/aws-deploy-fluss/high-infra/k8s/storage
+cd /path/to/benchmark/e2e-platform-aws/high-infra/k8s/storage
 export NAMESPACE=fluss
 export TABLET_REPLICAS=3  # Match your tablet server replica count
 export STORAGE_SIZE=500Gi  # Adjust based on your NVMe drive size
@@ -97,9 +98,9 @@ Deploy Fluss using your normal deployment process. The StatefulSet will create P
 ## How It Works
 
 1. **Terraform Setup**: When tablet server nodes are created, the `pre_bootstrap_user_data` script:
-   - Formats NVMe drives (`/dev/nvme1n1`, `/dev/nvme2n1`)
-   - Mounts them to `/mnt/fluss-tablet-data` and `/mnt/fluss-tablet-logs`
-   - Creates directory structure with proper permissions
+   - Formats NVMe drive (`/dev/nvme1n1`)
+   - Mounts it to `/opt/alldata`
+   - Creates `/opt/alldata/fluss/data`, `remote-data`, and `logs` with proper permissions
 
 2. **Kubernetes Storage**: 
    - StorageClass `local-storage` uses `no-provisioner` (manual PV creation)

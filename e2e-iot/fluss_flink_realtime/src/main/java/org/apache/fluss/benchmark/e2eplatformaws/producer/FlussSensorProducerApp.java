@@ -98,6 +98,8 @@ public final class FlussSensorProducerApp {
                 long sent = 0;
                 long startNano = System.nanoTime();
                 long lastStatsNano = startNano;
+                long lastStatsRecords = 0;
+                long statsIntervalNanos = options.statsInterval.toNanos();
                 long nanosPerRecord = options.recordsPerSecond > 0
                         ? TimeUnit.SECONDS.toNanos(1) / options.recordsPerSecond
                         : 0;
@@ -117,17 +119,18 @@ public final class FlussSensorProducerApp {
                         LOG.debug("Flushed {} records", sent);
                     }
 
-                    if (sent % options.statsEvery == 0) {
-                        long now = System.nanoTime();
+                    long now = System.nanoTime();
+                    if (now - lastStatsNano >= statsIntervalNanos) {
                         double overallRate = ratePerSecond(sent, now - startNano);
-                        double windowRate = ratePerSecond(options.statsEvery, now - lastStatsNano);
+                        double windowRate = ratePerSecond(sent - lastStatsRecords, now - lastStatsNano);
                         LOG.info(
                                 "Produced {} records (overall ~{} rec/s, last window ~{} rec/s)",
                                 sent,
                                 String.format(Locale.ROOT, "%.0f", overallRate),
                                 String.format(Locale.ROOT, "%.0f", windowRate));
                         lastStatsNano = now;
-                        metrics.updateStats(sent); // Update metrics stats
+                        lastStatsRecords = sent;
+                        metrics.updateStats(sent);
                     }
 
                     if (nanosPerRecord > 0) {
@@ -241,7 +244,7 @@ public final class FlussSensorProducerApp {
             int flushEvery,
             MemorySize writerBufferSize,
             MemorySize writerBatchSize,
-            int statsEvery,
+            Duration statsInterval,
             List<String> statusValues) {
         private static ProducerOptions parse(String[] args) {
             String bootstrap = "localhost:9124";
@@ -254,7 +257,7 @@ public final class FlussSensorProducerApp {
             // Check environment variable first, then use default
             int recordsPerSecond = getIntEnv("PRODUCER_RATE", 5000);
             int flushEvery = getIntEnv("PRODUCER_FLUSH_EVERY", 5000);
-            int statsEvery = getIntEnv("PRODUCER_STATS_EVERY", 50_000);
+            Duration statsInterval = parseStatsInterval();
             // Read buffer and batch sizes from environment variables
             String bufferSizeStr = getEnv("CLIENT_WRITER_BUFFER_MEMORY_SIZE", "32mb");
             String batchSizeStr = getEnv("CLIENT_WRITER_BATCH_SIZE", "4mb");
@@ -302,9 +305,9 @@ public final class FlussSensorProducerApp {
                         // Command-line argument overrides environment variable
                         flushEvery = Integer.parseInt(inlineValue != null ? inlineValue : requireValue(option, args, ++i));
                         break;
-                    case "--stats":
-                        // Command-line argument overrides environment variable
-                        statsEvery = Integer.parseInt(inlineValue != null ? inlineValue : requireValue(option, args, ++i));
+                    case "--stats-interval":
+                        statsInterval = parseStatsIntervalValue(
+                                inlineValue != null ? inlineValue : requireValue(option, args, ++i));
                         break;
                     default:
                         throw new IllegalArgumentException("Unknown argument: " + option);
@@ -323,7 +326,7 @@ public final class FlussSensorProducerApp {
                     flushEvery,
                     bufferSize,
                     batchSize,
-                    statsEvery,
+                    statsInterval,
                     statuses);
         }
 
@@ -367,6 +370,25 @@ public final class FlussSensorProducerApp {
             return 0d;
         }
         return records / (elapsedNanos / 1_000_000_000d);
+    }
+
+    private static Duration parseStatsInterval() {
+        String interval = getEnv("PRODUCER_STATS_INTERVAL", "");
+        if (!interval.isEmpty()) {
+            return parseStatsIntervalValue(interval);
+        }
+        return Duration.ofSeconds(getIntEnv("PRODUCER_STATS_INTERVAL_SECONDS", 10));
+    }
+
+    private static Duration parseStatsIntervalValue(String value) {
+        String trimmed = value.trim().toLowerCase(Locale.ROOT);
+        if (trimmed.endsWith("ms")) {
+            return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2)));
+        }
+        if (trimmed.endsWith("s")) {
+            return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1)));
+        }
+        return Duration.ofSeconds(Long.parseLong(trimmed));
     }
 
     private static final class RandomSensorDataGenerator {

@@ -18,7 +18,7 @@
 
 # Flink Job with Embedded JAR
 
-This approach embeds the Flink job JAR directly in the Docker image, similar to the pattern used in `/Users/vijayabhaskarv/IOT/datapipeline-0/Flink-Benchmark/low_infra_flink/flink-load`.
+This approach embeds the Flink job JAR directly in the Docker image for `local://` submission from the Flink cluster.
 
 ## Workflow
 
@@ -39,12 +39,12 @@ This approach embeds the Flink job JAR directly in the Docker image, similar to 
 ### 1. Build and Push Image
 
 ```bash
-cd aws-deploy-fluss/low-infra/k8s/flink
+cd benchmark/e2e-platform-aws/high-infra/k8s/flink
 ./build-and-push.sh
 ```
 
 This will:
-- Build the JAR from `demos/demo/fluss_flink_realtime_demo`
+- Build the JAR from `benchmark/e2e-platform-aws/fluss_flink_realtime`
 - Create Docker image with JAR at `/opt/flink/usrlib/fluss-flink-realtime-demo.jar`
 - Push to ECR: `343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss-demo:latest`
 

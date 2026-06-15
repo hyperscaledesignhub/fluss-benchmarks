@@ -34,16 +34,33 @@ public final class FlussTableBucketChecker {
 
     private FlussTableBucketChecker() {}
 
+    private static final int DEFAULT_EXPECTED_BUCKETS = 128;
+
     public static void main(String[] args) throws Exception {
-        if (args.length != 3) {
-            System.err.println("Usage: FlussTableBucketChecker <bootstrap-host:port> <database> <table>");
-            System.err.println("Example: FlussTableBucketChecker localhost:9124 iot sensor_readings");
+        if (args.length < 3 || args.length > 4) {
+            System.err.println(
+                    "Usage: FlussTableBucketChecker <bootstrap-host:port> <database> <table> [expected-buckets]");
+            System.err.println(
+                    "Example: FlussTableBucketChecker localhost:9124 iot sensor_readings 128");
             System.exit(1);
         }
 
         String bootstrap = args[0];
         String database = args[1];
         String table = args[2];
+        int expectedBuckets = DEFAULT_EXPECTED_BUCKETS;
+        if (args.length == 4) {
+            try {
+                expectedBuckets = Integer.parseInt(args[3]);
+            } catch (NumberFormatException e) {
+                System.err.println("ERROR: expected-buckets must be an integer, got: " + args[3]);
+                System.exit(1);
+            }
+            if (expectedBuckets <= 0) {
+                System.err.println("ERROR: expected-buckets must be positive, got: " + expectedBuckets);
+                System.exit(1);
+            }
+        }
 
         Configuration conf = new Configuration();
         conf.set(ConfigOptions.BOOTSTRAP_SERVERS, Collections.singletonList(bootstrap));
@@ -72,13 +89,18 @@ public final class FlussTableBucketChecker {
             System.out.println("Database:   " + database);
             System.out.println("Table:      " + table);
             System.out.println("Buckets:    " + bucketCount);
+            System.out.println("Expected:   " + expectedBuckets);
             System.out.println("========================================");
-            
-            if (bucketCount == 48) {
-                System.out.println("✓ Table has 48 buckets as expected");
+
+            if (bucketCount == expectedBuckets) {
+                System.out.println("✓ Table has " + expectedBuckets + " buckets as expected");
                 System.exit(0);
             } else {
-                System.out.println("⚠ WARNING: Table has " + bucketCount + " buckets, expected 48");
+                System.out.println(
+                        "⚠ WARNING: Table has "
+                                + bucketCount
+                                + " buckets, expected "
+                                + expectedBuckets);
                 System.exit(1);
             }
         } catch (Exception e) {

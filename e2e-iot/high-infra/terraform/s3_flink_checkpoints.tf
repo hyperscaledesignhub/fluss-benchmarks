@@ -22,9 +22,20 @@
 # IAM permissions using IRSA (IAM Roles for Service Accounts)
 # ================================================================================
 
+# S3 bucket names are globally unique; add a stable random suffix to avoid collisions
+# with other AWS accounts using the same default cluster naming convention.
+resource "random_id" "flink_state_bucket" {
+  keepers = {
+    cluster_name = var.eks_cluster_name
+    account_id   = data.aws_caller_identity.current.account_id
+    environment  = var.environment
+  }
+  byte_length = 4
+}
+
 # S3 Bucket for Flink Checkpoints and Savepoints
 resource "aws_s3_bucket" "flink_state" {
-  bucket = "${var.eks_cluster_name}-flink-state-${data.aws_caller_identity.current.account_id}"
+  bucket = "${var.eks_cluster_name}-flink-state-${data.aws_caller_identity.current.account_id}-${random_id.flink_state_bucket.hex}"
 
   force_destroy = true  # Allow terraform destroy to delete bucket even with objects/versions
 

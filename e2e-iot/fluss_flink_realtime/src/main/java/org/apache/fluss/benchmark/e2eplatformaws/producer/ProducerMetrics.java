@@ -75,12 +75,12 @@ public class ProducerMetrics {
     private void handleMetrics(com.sun.net.httpserver.HttpExchange exchange) throws IOException {
         long currentTime = System.currentTimeMillis();
         long total = totalRecords.sum();
-        long elapsedSeconds = (currentTime - startTime.get()) / 1000;
-        long windowRecords = lastStatsRecords.get();
-        long windowElapsedSeconds = (currentTime - lastStatsTime.get()) / 1000;
-        
-        double overallRate = elapsedSeconds > 0 ? (double) total / elapsedSeconds : 0.0;
-        double windowRate = windowElapsedSeconds > 0 ? (double) windowRecords / windowElapsedSeconds : 0.0;
+        double elapsedSeconds = (currentTime - startTime.get()) / 1000.0;
+        double windowElapsedSeconds = (currentTime - lastStatsTime.get()) / 1000.0;
+        long windowRecords = Math.max(0, total - lastStatsRecords.get());
+
+        double overallRate = elapsedSeconds > 0 ? total / elapsedSeconds : 0.0;
+        double windowRate = windowElapsedSeconds > 0 ? windowRecords / windowElapsedSeconds : 0.0;
         
         StringBuilder response = new StringBuilder();
         response.append("# HELP fluss_producer_records_total Total number of records written to Fluss\n");
@@ -97,7 +97,7 @@ public class ProducerMetrics {
         
         response.append("# HELP fluss_producer_uptime_seconds Producer uptime in seconds\n");
         response.append("# TYPE fluss_producer_uptime_seconds gauge\n");
-        response.append("fluss_producer_uptime_seconds ").append(elapsedSeconds).append("\n");
+        response.append("fluss_producer_uptime_seconds ").append((long) elapsedSeconds).append("\n");
         
         String responseStr = response.toString();
         exchange.sendResponseHeaders(200, responseStr.length());

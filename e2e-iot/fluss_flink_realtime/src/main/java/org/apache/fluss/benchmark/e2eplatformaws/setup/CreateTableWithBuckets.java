@@ -97,9 +97,7 @@ public final class CreateTableWithBuckets {
             if (!tableExists) {
                 LOG.info("Creating table '{}' with {} buckets...", tablePath, buckets);
 
-                // Schema matching AVRO schema from JDBCFlinkConsumer.java
-                // Only minimal fields from AVRO schema are stored in Fluss
-                // Remaining fields will be set to default values at the sink (matching JDBCFlinkConsumer.java)
+                // Minimal producer schema stored in Fluss; Flink fills remaining full-schema fields with defaults
                 Schema schema = Schema.newBuilder()
                         .primaryKey("sensor_id")  // Primary key (maps from sensorId in AVRO)
                         .column("sensor_id", DataTypes.INT())  // sensorId from AVRO
@@ -114,7 +112,7 @@ public final class CreateTableWithBuckets {
 
                 TableDescriptor descriptor = TableDescriptor.builder()
                         .schema(schema)
-                        .comment("Realtime sensor readings - matches AVRO schema from JDBCFlinkConsumer.java")
+                        .comment("Realtime sensor readings - minimal IoT producer schema")
                         .distributedBy(buckets, "sensor_id")
                         .build();
 

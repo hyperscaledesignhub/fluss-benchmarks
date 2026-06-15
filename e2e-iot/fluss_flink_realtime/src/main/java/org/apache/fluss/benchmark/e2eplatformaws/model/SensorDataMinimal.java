@@ -20,7 +20,7 @@ package org.apache.fluss.benchmark.e2eplatformaws.model;
 import java.io.Serializable;
 
 /**
- * Sensor Data Model matching minimal schema from JDBCFlinkConsumer.java
+ * Minimal sensor fields written by the Fluss producer (8 columns).
  * This matches the minimal schema used in RealtimeDataPlatform:
  * - sensorId (int)
  * - sensorType (int) - 1=temperature, 2=humidity, 3=pressure, 4=motion, 5=light, 6=co2, 7=noise, 8=multisensor

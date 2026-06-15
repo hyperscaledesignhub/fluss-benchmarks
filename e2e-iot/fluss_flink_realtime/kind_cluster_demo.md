@@ -25,7 +25,7 @@ This guide walks through deploying Fluss on a local Kind cluster and running the
 For a fully automated setup, run:
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS/demos/demo/fluss_flink_realtime_demo
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
 ./run_kind_demo.sh
 ```
 
@@ -51,21 +51,21 @@ See the script output for monitoring commands and cleanup instructions.
 
 ## Step 1: Build the Demo JAR
 
-From `/Users/vijayabhaskarv/IOT/FLUSS`:
+From the repository root:
 
 ```bash
-mvn -f demos/demo/fluss_flink_realtime_demo/pom.xml clean package
+mvn -f benchmark/e2e-platform-aws/fluss_flink_realtime/pom.xml clean package
 ```
 
-Output: `demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar`
+Output: `benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar`
 
 ## Step 2: Deploy Fluss on Kind
 
-From `/Users/vijayabhaskarv/IOT/FLUSS/demos/demo/fluss_flink_realtime_demo`:
+From `benchmark/e2e-platform-aws/fluss_flink_realtime`:
 
 ```bash
 # Deploy Fluss on Kind (this script creates the cluster, deploys ZooKeeper, and installs Fluss)
-./deploy_fluss_kind.sh
+./k8s/deploy_fluss_kind.sh
 ```
 
 This script will:
@@ -88,16 +88,16 @@ Verify Fluss is accessible:
 kubectl get svc -n default | grep fluss
 
 # Test connectivity (should return metadata)
-java -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123
 ```
 
 ## Step 3: Start Local Flink Cluster
 
-From `/Users/vijayabhaskarv/IOT/FLUSS`:
+From the repository root:
 
 ```bash
-./flink-1.20.3/bin/start-cluster.sh
+$FLINK_HOME/bin/start-cluster.sh
 ```
 
 Verify Flink is running:
@@ -109,17 +109,17 @@ curl http://localhost:8081/overview
 
 ## Step 4: Run the Producer (Terminal 1)
 
-From `/Users/vijayabhaskarv/IOT/FLUSS`, start the producer that writes to Fluss on Kind:
+From the repository root, start the producer that writes to Fluss on Kind:
 
 ```bash
-java -jar demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -jar benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 \
   --database iot \
   --table sensor_readings \
   --buckets 12 \
   --rate 2000 \
   --flush 5000 \
-  --stats 1000
+  --stats-interval 10
 ```
 
 The producer will:
@@ -131,12 +131,12 @@ The producer will:
 
 ## Step 5: Run the Flink Aggregation Job (Terminal 2)
 
-From `/Users/vijayabhaskarv/IOT/FLUSS`, in a **separate terminal**, submit the Flink job:
+From the repository root, in a **separate terminal**, submit the Flink job:
 
 ```bash
-./flink-1.20.3/bin/flink run \
+$FLINK_HOME/bin/flink run \
   -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
-  demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   --bootstrap localhost:9123 \
   --database iot \
   --table sensor_readings \
@@ -155,7 +155,7 @@ The Flink job will:
 
 ```bash
 # List running jobs
-./flink-1.20.3/bin/flink list
+$FLINK_HOME/bin/flink list
 
 # View job details in Web UI
 open http://localhost:8081
@@ -165,27 +165,27 @@ open http://localhost:8081
 
 ```bash
 # Find the TaskManager log file
-tail -f flink-1.20.3/log/flink-*-taskexecutor-*.log
+tail -f $FLINK_HOME/log/flink-*-taskexecutor-*.log
 
 # Or view aggregated output
-grep "SensorAggregate" flink-1.20.3/log/flink-*-taskexecutor-*.log
+grep "SensorAggregate" $FLINK_HOME/log/flink-*-taskexecutor-*.log
 ```
 
 ### Inspect Fluss Data
 
 ```bash
 # List databases
-java -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+java -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussMetadataInspector localhost:9123
 
 # Peek at change log (while producer is running)
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableLogPeek localhost:9123 iot sensor_readings 10
 
 # Peek at primary-key snapshot
 java --add-opens=java.base/java.nio=ALL-UNNAMED \
-  -cp demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar \
+  -cp benchmark/e2e-platform-aws/fluss_flink_realtime/target/fluss-flink-realtime-demo.jar \
   org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussPrimaryKeySnapshotPeek localhost:9123 iot sensor_readings 10
 ```
 
@@ -206,14 +206,14 @@ kubectl logs -n default -l app=fluss-tablet-server --tail=50 -f
 1. Press `Ctrl+C` in the producer terminal (Terminal 1)
 2. Cancel the Flink job:
    ```bash
-   ./flink-1.20.3/bin/flink cancel <JobID>
-   # Or list and cancel: ./flink-1.20.3/bin/flink list
+   $FLINK_HOME/bin/flink cancel <JobID>
+   # Or list and cancel: $FLINK_HOME/bin/flink list
    ```
 
 ### Stop Local Flink Cluster
 
 ```bash
-./flink-1.20.3/bin/stop-cluster.sh
+$FLINK_HOME/bin/stop-cluster.sh
 ```
 
 ### Delete Kind Cluster

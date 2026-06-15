@@ -22,7 +22,7 @@ import java.time.Instant;
 
 /**
  * Sensor Data Model matching RealtimeDataPlatform benchmark.sensors_local schema.
- * This model matches the schema from /Users/vijayabhaskarv/IOT/github/new/RealtimeDataPlatform/realtime-platform-1million-events/producer-load/
+ * This model matches the realtime IoT platform producer schema used in the E2E benchmark.
  * 
  * Only essential fields are stored in Fluss table. Remaining fields are set to default values at the sink.
  */

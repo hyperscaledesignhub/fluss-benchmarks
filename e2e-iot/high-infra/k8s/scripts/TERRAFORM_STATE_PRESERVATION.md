@@ -83,7 +83,7 @@ terraform {
 
   backend "s3" {
     bucket = "your-terraform-state-bucket"
-    key    = "aws-deploy-fluss/terraform.tfstate"
+    key    = "fluss-e2e-platform-aws/terraform.tfstate"
     region = "us-west-2"
     
     # Optional: Enable state locking with DynamoDB

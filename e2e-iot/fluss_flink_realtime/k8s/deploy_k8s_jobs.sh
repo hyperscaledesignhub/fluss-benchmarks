@@ -23,8 +23,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # DEMO_DIR is the parent directory (where pom.xml, Dockerfile, etc. are located)
 DEMO_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
-WORKDIR=$(cd "${DEMO_DIR}/../../.." && pwd)
-cd "${WORKDIR}"
+cd "${DEMO_DIR}"
 
 KIND_NAME=${KIND_NAME:-fluss-kind}
 IMAGE_NAME="fluss-demo"

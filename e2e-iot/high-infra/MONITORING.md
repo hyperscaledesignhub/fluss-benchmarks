@@ -141,7 +141,7 @@ histogram_quantile(0.95, sum(rate(fluss_client_writer_sendLatencyMs_bucket[5m]))
 ## Configuration
 
 ### Fluss Prometheus Metrics
-Configured in `helm-charts/fluss/values.yaml`:
+Configured via Helm `--set` / `configurationOverrides` when deploying Fluss (see `k8s/deploy.sh`):
 ```yaml
 configurationOverrides:
   metrics.reporter.prometheus.class: org.apache.fluss.metrics.prometheus.PrometheusReporterPlugin

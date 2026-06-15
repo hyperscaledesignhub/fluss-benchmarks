@@ -138,7 +138,7 @@ To verify the fixes:
 
 1. **Dashboard Deployment:**
    ```bash
-   cd aws-deploy-fluss/high-infra/k8s
+   cd benchmark/e2e-platform-aws/high-infra/k8s
    ./deploy.sh fluss <demo-image-repo> latest <fluss-image-repo>
    # Wait for deployment to complete
    kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
@@ -148,14 +148,14 @@ To verify the fixes:
 2. **Producer Deployment:**
    ```bash
    # Via deploy.sh (uses defaults)
-   cd aws-deploy-fluss/high-infra/k8s
+   cd benchmark/e2e-platform-aws/high-infra/k8s
    ./deploy.sh fluss <demo-image-repo> latest <fluss-image-repo>
    # Check producer pod
    kubectl get pods -n fluss -l app=fluss-producer
    kubectl logs -n fluss -l app=fluss-producer
    
    # Via deploy-producer.sh (custom values)
-   cd aws-deploy-fluss/high-infra/k8s/jobs
+   cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
    ./deploy-producer.sh --rate 20000 --buckets 3
    ```
 

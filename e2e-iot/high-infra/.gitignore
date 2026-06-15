@@ -6,8 +6,14 @@
 # terraform.tfvars - commented out to allow tracking mandatory terraform.tfvars
 # *.tfvars.backup
 
-# Helm charts (downloaded)
-# helm-charts/fluss/ - commented out to allow tracking mandatory helm charts
+# Vendored Fluss Helm chart (helm-charts/fluss/) is tracked — includes persistence support.
+
+# Local cluster credentials and plan artifacts (never commit)
+terraform/kubeconfig
+terraform/tfplan
+terraform/tfplan-*
+terraform/*.tfstate
+terraform/*.tfstate.*
 
 # IDE
 .idea/

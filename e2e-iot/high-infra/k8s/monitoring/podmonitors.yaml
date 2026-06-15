@@ -69,4 +69,42 @@ spec:
     - port: metrics
       path: /metrics
       interval: 30s
+---
+# PodMonitor for Fluss Coordinator pods
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: fluss-coordinator-pods
+  namespace: fluss
+  labels:
+    app: fluss
+    component: coordinator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluss
+      app.kubernetes.io/component: coordinator
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+---
+# PodMonitor for Fluss Tablet Server pods
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: fluss-tablet-pods
+  namespace: fluss
+  labels:
+    app: fluss
+    component: tablet-server
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluss
+      app.kubernetes.io/component: tablet
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
 

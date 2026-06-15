@@ -139,6 +139,8 @@ public final class FlussSensorProducerAppMultiInstance {
                 LongAdder totalSent = new LongAdder();
                 AtomicLong startNano = new AtomicLong(System.nanoTime());
                 AtomicLong lastStatsNano = new AtomicLong(startNano.get());
+                AtomicLong lastStatsRecords = new AtomicLong(0);
+                long statsIntervalNanos = options.statsInterval.toNanos();
                 
                 // Rate control: distribute rate across threads
                 // Each thread should produce: totalRate / numThreads records per second
@@ -193,11 +195,6 @@ public final class FlussSensorProducerAppMultiInstance {
                                 totalSent.increment();
                                 long currentTotal = totalSent.sum();
                                 metrics.recordWrite();
-                                
-                                if (currentTotal % 10 == 0) {
-                                    LOG.info("[Thread {}] Generated record {} (device_id={}, total={})", 
-                                            finalThreadId, threadSent, record.getSensorId(), currentTotal);
-                                }
 
                                 if (threadSent % options.flushEvery == 0) {
                                     writer.flush();
@@ -209,20 +206,15 @@ public final class FlussSensorProducerAppMultiInstance {
                                     break;
                                 }
                                 
-                                if (currentTotal % options.statsEvery == 0) {
-                                    long now = System.nanoTime();
-                                    double overallRate = ratePerSecond(currentTotal, now - startNano.get());
-                                    double windowRate = ratePerSecond(options.statsEvery, now - lastStatsNano.get());
-                                    LOG.info(
-                                            "[Thread {}] Produced {} records (thread: {}, overall ~{} rec/s, last window ~{} rec/s)",
-                                            finalThreadId,
-                                            currentTotal,
-                                            threadSent,
-                                            String.format(Locale.ROOT, "%.0f", overallRate),
-                                            String.format(Locale.ROOT, "%.0f", windowRate));
-                                    lastStatsNano.set(now);
-                                    metrics.updateStats(currentTotal);
-                                }
+                                maybeLogStats(
+                                        finalThreadId,
+                                        threadSent,
+                                        currentTotal,
+                                        startNano,
+                                        lastStatsNano,
+                                        lastStatsRecords,
+                                        statsIntervalNanos,
+                                        metrics);
 
                                 // Rate limiting per thread
                                 if (nanosPerRecordPerThread > 0) {
@@ -264,6 +256,36 @@ public final class FlussSensorProducerAppMultiInstance {
         running.set(false);
     }
 
+    private static void maybeLogStats(
+            int threadId,
+            long threadSent,
+            long currentTotal,
+            AtomicLong startNano,
+            AtomicLong lastStatsNano,
+            AtomicLong lastStatsRecords,
+            long statsIntervalNanos,
+            ProducerMetrics metrics) {
+        long now = System.nanoTime();
+        long lastNano = lastStatsNano.get();
+        if (now - lastNano < statsIntervalNanos) {
+            return;
+        }
+        if (!lastStatsNano.compareAndSet(lastNano, now)) {
+            return;
+        }
+        long recordsAtLast = lastStatsRecords.getAndSet(currentTotal);
+        double overallRate = ratePerSecond(currentTotal, now - startNano.get());
+        double windowRate = ratePerSecond(currentTotal - recordsAtLast, now - lastNano);
+        LOG.info(
+                "[Thread {}] Produced {} records (thread: {}, overall ~{} rec/s, last window ~{} rec/s)",
+                threadId,
+                currentTotal,
+                threadSent,
+                String.format(Locale.ROOT, "%.0f", overallRate),
+                String.format(Locale.ROOT, "%.0f", windowRate));
+        metrics.updateStats(currentTotal);
+    }
+
     private static void ensureSchema(Connection connection, TablePath tablePath, int bucketCount)
             throws Exception {
         try (Admin admin = connection.getAdmin()) {
@@ -273,7 +295,7 @@ public final class FlussSensorProducerAppMultiInstance {
                             true)
                     .get();
 
-            // Schema matching AVRO schema from JDBCFlinkConsumer.java
+            // Minimal IoT sensor schema (8 columns written to Fluss)
             // Only minimal fields from AVRO schema are stored in Fluss
             Schema schema = Schema.newBuilder()
                     .primaryKey("sensor_id")
@@ -289,7 +311,7 @@ public final class FlussSensorProducerAppMultiInstance {
 
             TableDescriptor descriptor = TableDescriptor.builder()
                     .schema(schema)
-                    .comment("Realtime sensor readings - matches AVRO schema from JDBCFlinkConsumer.java")
+                    .comment("Realtime sensor readings - minimal IoT producer schema")
                     .distributedBy(bucketCount, "sensor_id")
                     .build();
 
@@ -325,7 +347,7 @@ public final class FlussSensorProducerAppMultiInstance {
             int flushEvery,
             MemorySize writerBufferSize,
             MemorySize writerBatchSize,
-            int statsEvery,
+            Duration statsInterval,
             int totalProducers,
             int instanceId,
             int numWriterThreads) {
@@ -338,7 +360,7 @@ public final class FlussSensorProducerAppMultiInstance {
             Duration runDuration = Duration.ZERO;
             int recordsPerSecond = getIntEnv("PRODUCER_RATE", 200000);
             int flushEvery = getIntEnv("PRODUCER_FLUSH_EVERY", 200000);
-            int statsEvery = getIntEnv("PRODUCER_STATS_EVERY", 50_000);
+            Duration statsInterval = parseStatsInterval();
             String bufferSizeStr = getEnv("CLIENT_WRITER_BUFFER_MEMORY_SIZE", "2gb");
             String batchSizeStr = getEnv("CLIENT_WRITER_BATCH_SIZE", "128mb");
             MemorySize bufferSize = MemorySize.parse(bufferSizeStr);
@@ -382,8 +404,9 @@ public final class FlussSensorProducerAppMultiInstance {
                     case "--flush":
                         flushEvery = Integer.parseInt(inlineValue != null ? inlineValue : requireValue(option, args, ++i));
                         break;
-                    case "--stats":
-                        statsEvery = Integer.parseInt(inlineValue != null ? inlineValue : requireValue(option, args, ++i));
+                    case "--stats-interval":
+                        statsInterval = parseStatsIntervalValue(
+                                inlineValue != null ? inlineValue : requireValue(option, args, ++i));
                         break;
                     case "--total-producers":
                         totalProducers = Integer.parseInt(inlineValue != null ? inlineValue : requireValue(option, args, ++i));
@@ -410,7 +433,7 @@ public final class FlussSensorProducerAppMultiInstance {
                     flushEvery,
                     bufferSize,
                     batchSize,
-                    statsEvery,
+                    statsInterval,
                     totalProducers,
                     instanceId,
                     numWriterThreads);
@@ -458,6 +481,25 @@ public final class FlussSensorProducerAppMultiInstance {
         return records / (elapsedNanos / 1_000_000_000d);
     }
 
+    private static Duration parseStatsInterval() {
+        String interval = getEnv("PRODUCER_STATS_INTERVAL", "");
+        if (!interval.isEmpty()) {
+            return parseStatsIntervalValue(interval);
+        }
+        return Duration.ofSeconds(getIntEnv("PRODUCER_STATS_INTERVAL_SECONDS", 10));
+    }
+
+    private static Duration parseStatsIntervalValue(String value) {
+        String trimmed = value.trim().toLowerCase(Locale.ROOT);
+        if (trimmed.endsWith("ms")) {
+            return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2)));
+        }
+        if (trimmed.endsWith("s")) {
+            return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1)));
+        }
+        return Duration.ofSeconds(Long.parseLong(trimmed));
+    }
+
     /**
      * Generator for a specific device ID range.
      * Each device has its own independent state and generates data.
@@ -489,7 +531,7 @@ public final class FlussSensorProducerAppMultiInstance {
 
     /**
      * Generator for a single device with independent state.
-     * Generates data matching minimal schema fields only (same as JDBCFlinkConsumer.java reads from Pulsar).
+     * Generates data for the minimal producer schema fields only.
      * Flink job will add default values for missing fields at the sink level.
      */
     private static final class DeviceGenerator {

@@ -137,6 +137,8 @@ FLUSS_HELM_SET=(
     --set persistence.storageClass=local-storage
     --set persistence.size=500Gi
     --set configurationOverrides."zookeeper\.address"="zk-svc.${NAMESPACE}.svc.cluster.local:2181"
+    --set configurationOverrides."metrics\.reporters"="prometheus"
+    --set configurationOverrides."metrics\.reporter\.prometheus\.port"="9249"
 )
 
 if [ -n "${FLUSS_IMAGE_REPO}" ]; then

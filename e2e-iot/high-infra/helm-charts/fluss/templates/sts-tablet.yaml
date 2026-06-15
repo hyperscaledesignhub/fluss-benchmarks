@@ -34,18 +34,13 @@ spec:
       labels:
         {{- include "fluss.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: tablet
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.appConfig.metricsPort }}"
+        prometheus.io/path: "/metrics"
     spec:
-      {{- if .Values.tabletServer.nodeSelector }}
-      nodeSelector:
-        {{- toYaml .Values.tabletServer.nodeSelector | nindent 8 }}
-      {{- end }}
-      {{- if .Values.tabletServer.tolerations }}
-      tolerations:
-        {{- toYaml .Values.tabletServer.tolerations | nindent 8 }}
-      {{- end }}
-      {{- if .Values.tabletServer.affinity }}
-      affinity:
-        {{- toYaml .Values.tabletServer.affinity | nindent 8 }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.name | default (include "fluss.fullname" .) }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}-tablet
@@ -71,13 +66,10 @@ spec:
               export FLUSS_SERVER_ID=${POD_NAME##*-} && \
               cp /opt/conf/server.yaml $FLUSS_HOME/conf && \
               export PORT=$((9125 + ${FLUSS_SERVER_ID})) && \
-              # Create directories and symlink logs to persistent storage
-              mkdir -p /opt/alldata/fluss/data /opt/alldata/fluss/remote-data /opt/alldata/fluss/logs && \
-              rm -rf $FLUSS_HOME/log && ln -sf /opt/alldata/fluss/logs $FLUSS_HOME/log && \
               echo "" >> $FLUSS_HOME/conf/server.yaml && \
               echo "tablet-server.id: ${FLUSS_SERVER_ID}" >> $FLUSS_HOME/conf/server.yaml && \
-              echo "bind.listeners: INTERNAL://${POD_IP}:{{ .Values.appConfig.internalPort }}, CLIENT://0.0.0.0:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
-              echo "advertised.listeners: CLIENT://${POD_NAME}.tablet-server-hs.${POD_NAMESPACE}.svc.cluster.local:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
+              echo "bind.listeners: INTERNAL://0.0.0.0:{{ .Values.appConfig.internalPort }}, CLIENT://0.0.0.0:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
+              echo "advertised.listeners: INTERNAL://${POD_NAME}.tablet-server-hs.${POD_NAMESPACE}.svc.cluster.local:{{ .Values.appConfig.internalPort }}, CLIENT://${POD_NAME}.tablet-server-hs.${POD_NAMESPACE}.svc.cluster.local:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
               bin/tablet-server.sh start-foreground
           livenessProbe:
             failureThreshold: 100
@@ -93,13 +85,17 @@ spec:
             periodSeconds: 3
             tcpSocket:
               port: {{.Values.appConfig.externalPort}}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.appConfig.metricsPort }}
+              protocol: TCP
           resources:
             {{- toYaml .Values.resources.tabletServer | nindent 12 }}
           volumeMounts:
             - name: fluss-conf
               mountPath: /opt/conf
             - name: data
-              mountPath: /opt/alldata/fluss
+              mountPath: /tmp/fluss/data
       volumes:
         - name: fluss-conf
           configMap:

@@ -34,18 +34,13 @@ spec:
       labels:
         {{- include "fluss.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: coordinator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.appConfig.metricsPort }}"
+        prometheus.io/path: "/metrics"
     spec:
-      {{- if .Values.coordinator.nodeSelector }}
-      nodeSelector:
-        {{- toYaml .Values.coordinator.nodeSelector | nindent 8 }}
-      {{- end }}
-      {{- if .Values.coordinator.tolerations }}
-      tolerations:
-        {{- toYaml .Values.coordinator.tolerations | nindent 8 }}
-      {{- end }}
-      {{- if .Values.coordinator.affinity }}
-      affinity:
-        {{- toYaml .Values.coordinator.affinity | nindent 8 }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.name | default (include "fluss.fullname" .) }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}-coordinator
@@ -77,11 +72,8 @@ spec:
 
               echo "" >> $FLUSS_HOME/conf/server.yaml && \
               echo "tablet-server.id: ${FLUSS_SERVER_ID}" >> $FLUSS_HOME/conf/server.yaml && \
-              # Coordinator must advertise both INTERNAL and CLIENT listeners
-              # INTERNAL listener (port 9123) is used by tablet servers for internal communication
-              # CLIENT listener (port 9124) is used by external clients
               echo "bind.listeners: INTERNAL://0.0.0.0:{{ .Values.appConfig.internalPort }}, CLIENT://0.0.0.0:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
-              echo "advertised.listeners: INTERNAL://${POD_IP}:{{ .Values.appConfig.internalPort }}, CLIENT://${POD_IP}:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
+              echo "advertised.listeners: INTERNAL://${POD_NAME}.coordinator-server-hs.${POD_NAMESPACE}.svc.cluster.local:{{ .Values.appConfig.internalPort }}, CLIENT://${POD_NAME}.coordinator-server-hs.${POD_NAMESPACE}.svc.cluster.local:{{ .Values.appConfig.externalPort }}" >> $FLUSS_HOME/conf/server.yaml && \
 
               bin/coordinator-server.sh start-foreground
           livenessProbe:
@@ -98,6 +90,10 @@ spec:
             periodSeconds: 3
             tcpSocket:
               port: {{.Values.appConfig.externalPort}}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.appConfig.metricsPort }}
+              protocol: TCP
           resources:
             {{- toYaml .Values.resources.tabletServer | nindent 12 }}
           volumeMounts:
@@ -109,6 +105,18 @@ spec:
         - name: fluss-conf
           configMap:
             name: fluss-conf-file
-        # Coordinator never uses persistent storage - always use emptyDir
+        {{- if not (and .Values.persistence.enabled .Values.persistence.coordinatorEnabled) }}
         - name: data
           emptyDir: {}
+        {{- end }}
+  {{- if and .Values.persistence.enabled .Values.persistence.coordinatorEnabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end}}

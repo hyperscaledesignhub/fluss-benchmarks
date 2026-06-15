@@ -44,7 +44,7 @@ This document describes the optimal configuration parameters for the Fluss produ
 Use the optimal deployment script:
 
 ```bash
-cd aws-deploy-fluss/high-infra/k8s/jobs
+cd benchmark/e2e-platform-aws/high-infra/k8s/jobs
 ./deploy-producer-optimal.sh
 ```
 

@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="${NAMESPACE:-fluss}"
 
 # Default values
-JAR_PATH="${1:-/app/fluss-flink-realtime-demo.jar}"
+JAR_PATH="${1:-/opt/flink/usrlib/fluss-flink-realtime-demo.jar}"
 JOBMANAGER="${2:-flink-jobmanager.${NAMESPACE}.svc.cluster.local:8081}"
 
 # If JAR_PATH is a local file, we need to upload it first

@@ -4,10 +4,11 @@
 aws_region = "us-west-2"
 environment = "dev"
 eks_cluster_name = "fluss-eks-cluster"
+kubernetes_version = "1.31"  # Match cluster; upgrade to 1.35 when ready (one minor version per apply)
 namespace = "fluss"
 
 # Fluss configuration
-fluss_version = "0.8.0-incubating"
+fluss_version = "0.9.0-incubating"
 # ECR repository URL for Fluss image (updated after push-images-to-ecr.sh)
 fluss_image_repository = "343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss"
 use_ecr_for_fluss = true

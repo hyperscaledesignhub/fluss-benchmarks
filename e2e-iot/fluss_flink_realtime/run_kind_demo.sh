@@ -22,13 +22,13 @@ set -euo pipefail
 # This script automates the steps in kind_cluster_demo.md
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# Navigate to project root (3 levels up from this script)
-WORKDIR=$(cd "${SCRIPT_DIR}/../../.." && pwd)
-cd "${WORKDIR}"
+DEMO_DIR="${SCRIPT_DIR}"
+REPO_ROOT=$(cd "${SCRIPT_DIR}/../../.." && pwd)
+cd "${DEMO_DIR}"
 
 KIND_NAME=${KIND_NAME:-fluss-kind}
-DEMO_JAR="${WORKDIR}/demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar"
-FLINK_HOME="${WORKDIR}/flink-1.20.3"
+DEMO_JAR="${DEMO_DIR}/target/fluss-flink-realtime-demo.jar"
+FLINK_HOME="${FLINK_HOME:-${REPO_ROOT}/flink-1.20.3}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -41,7 +41,7 @@ echo -e "${GREEN}=== Fluss + Flink Kind Cluster Demo ===${NC}\n"
 # Step 1: Build demo JAR
 if [ ! -f "${DEMO_JAR}" ]; then
     echo -e "${YELLOW}[1/6] Building demo JAR...${NC}"
-    mvn -f "${WORKDIR}/demos/demo/fluss_flink_realtime_demo/pom.xml" clean package
+    mvn -f "${DEMO_DIR}/pom.xml" clean package
 else
     echo -e "${GREEN}[1/6] Demo JAR already exists, skipping build${NC}"
 fi
@@ -103,7 +103,7 @@ fi
 
 # Step 4: Start producer in background
 echo -e "\n${YELLOW}[5/6] Starting producer (background)...${NC}"
-PRODUCER_LOG="${WORKDIR}/producer.log"
+PRODUCER_LOG="${DEMO_DIR}/producer.log"
 java -jar "${DEMO_JAR}" \
     --bootstrap localhost:9124 \
     --database iot \
@@ -111,7 +111,7 @@ java -jar "${DEMO_JAR}" \
     --buckets 12 \
     --rate 2000 \
     --flush 5000 \
-    --stats 1000 \
+    --stats-interval 10 \
     > "${PRODUCER_LOG}" 2>&1 &
 PRODUCER_PID=$!
 echo -e "${GREEN}✓ Producer started (PID: ${PRODUCER_PID}, log: ${PRODUCER_LOG})${NC}"
@@ -121,7 +121,7 @@ sleep 5
 
 # Step 5: Submit Flink job
 echo -e "\n${YELLOW}[6/6] Submitting Flink aggregation job...${NC}"
-FLINK_LOG="${WORKDIR}/flink-job.log"
+FLINK_LOG="${DEMO_DIR}/flink-job.log"
 "${FLINK_HOME}/bin/flink run" \
     -c org.apache.fluss.benchmark.e2eplatformaws.flink.FlinkSensorAggregatorJob \
     "${DEMO_JAR}" \

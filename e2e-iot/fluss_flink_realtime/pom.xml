@@ -30,7 +30,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <fluss.version>0.8.0-incubating</fluss.version>
+        <fluss.version>0.9.0-incubating</fluss.version>
         <flink.version>1.20.3</flink.version>
     </properties>
 

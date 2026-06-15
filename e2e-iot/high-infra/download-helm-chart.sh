@@ -18,50 +18,49 @@
 #!/bin/bash
 set -euo pipefail
 
-# Optional: download the official Apache Fluss Helm chart for offline use.
-# Normal deployments use the public chart repo directly (see k8s/deploy.sh).
-# The chart is extracted to helm-charts/fluss/ (gitignored).
-#
-# Usage:
-#   source ../default.env.sh --fluss-version VERSION
-#   ./download-helm-chart.sh
+# Install the Fluss Helm chart with persistence support into helm-charts/fluss/.
+# The published chart at downloads.apache.org ignores persistence.enabled; the
+# vendored chart under helm-charts/fluss/ includes volumeClaimTemplates.
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 HELM_CHARTS_DIR="${SCRIPT_DIR}/helm-charts"
+FLUSS_VERSION="${FLUSS_VERSION:-0.9.0-incubating}"
 
-if [ -z "${FLUSS_VERSION:-}" ]; then
-    echo "Error: FLUSS_VERSION is not set." >&2
-    echo "Usage:" >&2
-    echo "  source ../default.env.sh --fluss-version VERSION" >&2
-    echo "  ./download-helm-chart.sh" >&2
-    exit 1
-fi
+usage() {
+    echo "Usage: $0 [--fluss-version VERSION]"
+    echo "  Default version: 0.9.0-incubating (or FLUSS_VERSION env var)"
+}
 
-CHART_URL="https://downloads.apache.org/incubator/fluss/helm-chart/fluss-${FLUSS_VERSION}.tgz"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --fluss-version)
+            if [ $# -lt 2 ]; then
+                echo "Error: --fluss-version requires a value"
+                usage
+                exit 1
+            fi
+            FLUSS_VERSION="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown argument: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
-echo "Downloading Fluss Helm chart version ${FLUSS_VERSION}..."
-
-# Create helm-charts directory if it doesn't exist
 mkdir -p "${HELM_CHARTS_DIR}"
 
-# Download chart
-TEMP_DIR=$(mktemp -d)
-trap "rm -rf ${TEMP_DIR}" EXIT
-
-cd "${TEMP_DIR}"
-curl -L -o "fluss-${FLUSS_VERSION}.tgz" "${CHART_URL}"
-
-# Extract chart
-tar -xzf "fluss-${FLUSS_VERSION}.tgz"
-
-# Copy to helm-charts directory
-if [ -d "fluss" ]; then
-    rm -rf "${HELM_CHARTS_DIR}/fluss"
-    cp -r "fluss" "${HELM_CHARTS_DIR}/"
-    echo "✓ Fluss Helm chart extracted to ${HELM_CHARTS_DIR}/fluss"
-else
-    echo "Error: Chart extraction failed"
-    exit 1
+if [ -f "${HELM_CHARTS_DIR}/fluss/Chart.yaml" ]; then
+    echo "✓ Fluss Helm chart already present at ${HELM_CHARTS_DIR}/fluss"
+    exit 0
 fi
 
-echo "Chart download complete!"
+echo "ERROR: Fluss Helm chart with persistence support not found at ${HELM_CHARTS_DIR}/fluss"
+echo "  The chart is vendored in this repo; ensure helm-charts/fluss/ is present."
+exit 1

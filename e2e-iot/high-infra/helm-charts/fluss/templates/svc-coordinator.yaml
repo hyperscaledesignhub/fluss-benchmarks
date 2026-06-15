@@ -23,7 +23,6 @@ metadata:
   labels:
     {{- include "fluss.labels" . | nindent 4 }}
     app.kubernetes.io/component: coordinator
-    app: fluss-coordinator
 spec:
   clusterIP: None
   type: ClusterIP
@@ -38,8 +37,8 @@ spec:
       targetPort: {{ .Values.appConfig.externalPort }}
     - name: metrics
       protocol: TCP
-      port: 9249
-      targetPort: 9249
+      port: {{ .Values.appConfig.metricsPort }}
+      targetPort: {{ .Values.appConfig.metricsPort }}
   selector:
     {{- include "fluss.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: coordinator

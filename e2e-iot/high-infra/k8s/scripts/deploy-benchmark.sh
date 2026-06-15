@@ -25,7 +25,7 @@ K8S_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 NAMESPACE="${NAMESPACE:-fluss}"
 DEMO_IMAGE_REPO="${DEMO_IMAGE_REPO:-}"
 DEMO_IMAGE_TAG="${DEMO_IMAGE_TAG:-latest}"
-FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-apache/fluss:0.8.0-incubating}"
+FLUSS_IMAGE_REPO="${FLUSS_IMAGE_REPO:-apache/fluss:0.9.0-incubating}"
 CLUSTER_NAME="${CLUSTER_NAME:-fluss-eks-cluster}"
 REGION="${REGION:-us-west-2}"
 
@@ -119,7 +119,7 @@ ENVIRONMENT VARIABLES:
     NAMESPACE              Kubernetes namespace (default: fluss)
     DEMO_IMAGE_REPO        Demo image repository (required for step 5)
     DEMO_IMAGE_TAG         Demo image tag (default: latest)
-    FLUSS_IMAGE_REPO       Fluss image repository (default: apache/fluss:0.8.0-incubating)
+    FLUSS_IMAGE_REPO       Fluss image repository (default: apache/fluss:0.9.0-incubating)
     CLUSTER_NAME           EKS cluster name (default: fluss-eks-cluster)
     REGION                 AWS region (default: us-west-2)
 

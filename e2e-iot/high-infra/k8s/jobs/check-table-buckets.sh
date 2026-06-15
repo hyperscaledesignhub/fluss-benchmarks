@@ -29,6 +29,7 @@ NAMESPACE="${NAMESPACE:-fluss}"
 BOOTSTRAP="${BOOTSTRAP:-coordinator-server-hs.fluss.svc.cluster.local:9124}"
 DATABASE="${DATABASE:-iot}"
 TABLE="${TABLE:-sensor_readings}"
+BUCKETS="${BUCKETS:-128}"
 DEMO_IMAGE_REPO="${DEMO_IMAGE_REPO:-343218179954.dkr.ecr.us-west-2.amazonaws.com/fluss-demo}"
 DEMO_IMAGE_TAG="${DEMO_IMAGE_TAG:-latest}"
 USE_KUBECTL_EXEC="${USE_KUBECTL_EXEC:-false}"
@@ -50,6 +51,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --table)
             TABLE="$2"
+            shift 2
+            ;;
+        --buckets)
+            BUCKETS="$2"
             shift 2
             ;;
         --image-repo)
@@ -76,6 +81,7 @@ while [[ $# -gt 0 ]]; do
             echo "                            Use localhost:9124 if port-forwarding"
             echo "  --database DATABASE       Database name (default: iot)"
             echo "  --table TABLE             Table name (default: sensor_readings)"
+            echo "  --buckets BUCKETS         Expected bucket count (default: 128)"
             echo "  --image-repo REPO         Docker image repository (for kubectl exec)"
             echo "  --image-tag TAG           Docker image tag (for kubectl exec)"
             echo "  --kubectl-exec            Run via kubectl exec instead of locally"
@@ -102,6 +108,7 @@ echo "=== Checking Fluss Table Bucket Count ==="
 echo "  Bootstrap: ${BOOTSTRAP}"
 echo "  Database: ${DATABASE}"
 echo "  Table: ${TABLE}"
+echo "  Expected buckets: ${BUCKETS}"
 echo ""
 
 if [ "${USE_KUBECTL_EXEC}" = "true" ]; then
@@ -148,6 +155,7 @@ spec:
             - ${BOOTSTRAP}
             - ${DATABASE}
             - ${TABLE}
+            - ${BUCKETS}
           resources:
             requests:
               memory: "512Mi"
@@ -183,16 +191,17 @@ EOF
             --add-opens=java.base/java.time=ALL-UNNAMED \
             -cp /opt/flink/usrlib/fluss-flink-realtime-demo.jar \
             org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableBucketChecker \
-            "${BOOTSTRAP}" "${DATABASE}" "${TABLE}"
+            "${BOOTSTRAP}" "${DATABASE}" "${TABLE}" "${BUCKETS}"
     fi
 else
     # Run locally - need the demo jar
-    DEMO_JAR="${SCRIPT_DIR}/../../../demos/demo/fluss_flink_realtime_demo/target/fluss-flink-realtime-demo.jar"
-    
+    DEMO_DIR="${SCRIPT_DIR}/../../../fluss_flink_realtime"
+    DEMO_JAR="${DEMO_DIR}/target/fluss-flink-realtime-demo.jar"
+
     if [ ! -f "${DEMO_JAR}" ]; then
         echo "ERROR: Demo JAR not found at ${DEMO_JAR}"
         echo "Please build it first:"
-        echo "  mvn -pl demos/demo/fluss_flink_realtime_demo -am clean package"
+        echo "  mvn -f ${DEMO_DIR}/pom.xml clean package"
         echo ""
         echo "Or use --kubectl-exec to run inside the cluster"
         exit 1
@@ -206,7 +215,7 @@ else
         --add-opens=java.base/java.time=ALL-UNNAMED \
         -cp "${DEMO_JAR}" \
         org.apache.fluss.benchmark.e2eplatformaws.inspect.FlussTableBucketChecker \
-        "${BOOTSTRAP}" "${DATABASE}" "${TABLE}"
+        "${BOOTSTRAP}" "${DATABASE}" "${TABLE}" "${BUCKETS}"
 fi
 
 

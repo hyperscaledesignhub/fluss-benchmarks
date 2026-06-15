@@ -26,7 +26,7 @@
 
 ## Step-by-Step Instructions
 
-**Note:** All commands should be run from the workspace root: `/Users/vijayabhaskarv/IOT/FLUSS`
+**Note:** Paths assume the `fluss-benchmarks` repository root. The demo module is at `benchmark/e2e-platform-aws/fluss_flink_realtime`.
 
 ### Step 1: Deploy Fluss on Kind Cluster
 This script will:
@@ -36,13 +36,7 @@ This script will:
 - Wait for services to be ready
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS/demos/demo/fluss_flink_realtime_demo
-./run_kind_demo.sh
-```
-
-Or from workspace root:
-```bash
-cd demos/demo/fluss_flink_realtime_demo
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
 ./run_kind_demo.sh
 ```
 
@@ -68,13 +62,7 @@ This script will:
 - Deploy producer and Flink aggregator as Kubernetes Jobs
 
 ```bash
-cd /Users/vijayabhaskarv/IOT/FLUSS/demos/demo/fluss_flink_realtime_demo
-./k8s/deploy_k8s_jobs.sh
-```
-
-Or from workspace root:
-```bash
-cd demos/demo/fluss_flink_realtime_demo
+cd benchmark/e2e-platform-aws/fluss_flink_realtime
 ./k8s/deploy_k8s_jobs.sh
 ```
 
@@ -192,10 +180,10 @@ kubectl logs coordinator-server-0 | grep "advertised.listeners"
 3. Restart coordinator: `kubectl delete pod coordinator-server-0`
 
 ### If you see ClassNotFoundException:
-1. Rebuild JAR: `cd demos/demo/fluss_flink_realtime_demo && mvn -f pom.xml clean package`
-2. Rebuild Docker image: `cd demos/demo/fluss_flink_realtime_demo && docker build -t fluss-demo:latest .`
+1. Rebuild JAR: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && mvn -f pom.xml clean package`
+2. Rebuild Docker image: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && docker build -t fluss-demo:latest .`
 3. Reload into Kind: `kind load docker-image fluss-demo:latest --name fluss-kind`
-4. Redeploy jobs: `cd demos/demo/fluss_flink_realtime_demo && kubectl delete job fluss-producer flink-aggregator && ./k8s/deploy_k8s_jobs.sh`
+4. Redeploy jobs: `cd benchmark/e2e-platform-aws/fluss_flink_realtime && kubectl delete job fluss-producer flink-aggregator && ./k8s/deploy_k8s_jobs.sh`
 
 ---
 

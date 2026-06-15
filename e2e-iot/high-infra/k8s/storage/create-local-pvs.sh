@@ -48,7 +48,7 @@ spec:
     - ReadWriteOnce
   storageClassName: local-storage
   local:
-    path: /opt/alldata/fluss
+    path: /opt/alldata/fluss/data
   nodeAffinity:
     required:
       nodeSelectorTerms:

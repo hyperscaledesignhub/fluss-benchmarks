@@ -25,7 +25,7 @@ set -e
 #   --image IMAGE                  Docker image (default: from ECR or env)
 #   --rate RATE                    Records per second (default: 2000)
 #   --flush FLUSH                  Flush every N records (default: 20000)
-#   --stats STATS                  Stats every N records (default: 1000)
+#   --stats-interval SECONDS       Stats log interval in seconds (default: 10)
 #   --buffer-size SIZE             Writer buffer memory size (default: 128mb)
 #   --batch-size SIZE              Writer batch size (default: 16mb)
 #   --memory-request SIZE          Memory request (default: 2Gi)
@@ -44,7 +44,7 @@ NAMESPACE="${NAMESPACE:-fluss}"
 # Optimal performance defaults (can be overridden via env vars or command line)
 PRODUCER_RATE="${PRODUCER_RATE:-200000}"
 PRODUCER_FLUSH_EVERY="${PRODUCER_FLUSH_EVERY:-5000}"
-PRODUCER_STATS_EVERY="${PRODUCER_STATS_EVERY:-50000}"
+PRODUCER_STATS_INTERVAL_SECONDS="${PRODUCER_STATS_INTERVAL_SECONDS:-10}"
 CLIENT_WRITER_BATCH_TIMEOUT="${CLIENT_WRITER_BATCH_TIMEOUT:-90ms}"
 CLIENT_WRITER_BUFFER_MEMORY_SIZE="${CLIENT_WRITER_BUFFER_MEMORY_SIZE:-2gb}"
 CLIENT_WRITER_BATCH_SIZE="${CLIENT_WRITER_BATCH_SIZE:-128mb}"
@@ -88,8 +88,8 @@ while [[ $# -gt 0 ]]; do
             PRODUCER_FLUSH_EVERY="$2"
             shift 2
             ;;
-        --stats)
-            PRODUCER_STATS_EVERY="$2"
+        --stats-interval)
+            PRODUCER_STATS_INTERVAL_SECONDS="$2"
             shift 2
             ;;
         --buffer-size)
@@ -160,7 +160,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --image IMAGE                  Docker image (default: from ECR or env)"
             echo "  --rate RATE                    Records per second (default: 2000)"
             echo "  --flush FLUSH                  Flush every N records (default: 20000)"
-            echo "  --stats STATS                  Stats every N records (default: 1000)"
+            echo "  --stats-interval SECONDS       Stats log interval in seconds (default: 10)"
             echo "  --buffer-size SIZE             Writer buffer memory size (default: 128mb)"
             echo "  --batch-size SIZE              Writer batch size (default: 16mb)"
             echo "  --memory-request SIZE           Memory request (default: 2Gi)"
@@ -178,7 +178,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --logs                         Show logs after deployment"
             echo ""
             echo "Environment variables:"
-            echo "  NAMESPACE, PRODUCER_RATE, PRODUCER_FLUSH_EVERY, PRODUCER_STATS_EVERY"
+            echo "  NAMESPACE, PRODUCER_RATE, PRODUCER_FLUSH_EVERY, PRODUCER_STATS_INTERVAL_SECONDS"
             echo "  CLIENT_WRITER_BUFFER_MEMORY_SIZE, CLIENT_WRITER_BATCH_SIZE"
             echo "  PRODUCER_MEMORY_REQUEST, PRODUCER_MEMORY_LIMIT"
             echo "  PRODUCER_CPU_REQUEST, PRODUCER_CPU_LIMIT"
@@ -212,7 +212,7 @@ echo "Namespace: ${NAMESPACE}"
 echo "Image: ${DEMO_IMAGE_REPO}:${DEMO_IMAGE_TAG}"
 echo "Rate: ${PRODUCER_RATE} records/sec"
 echo "Flush: every ${PRODUCER_FLUSH_EVERY} records"
-echo "Stats: every ${PRODUCER_STATS_EVERY} records"
+echo "Stats: every ${PRODUCER_STATS_INTERVAL_SECONDS}s"
 echo "Buffer Size: ${CLIENT_WRITER_BUFFER_MEMORY_SIZE}"
 echo "Batch Size: ${CLIENT_WRITER_BATCH_SIZE}"
 echo "Memory: ${PRODUCER_MEMORY_REQUEST} request, ${PRODUCER_MEMORY_LIMIT} limit"
@@ -246,7 +246,7 @@ export DEMO_IMAGE_REPO
 export DEMO_IMAGE_TAG
 export PRODUCER_RATE
 export PRODUCER_FLUSH_EVERY
-export PRODUCER_STATS_EVERY
+export PRODUCER_STATS_INTERVAL_SECONDS
 export CLIENT_WRITER_BUFFER_MEMORY_SIZE
 export CLIENT_WRITER_BATCH_SIZE
 export CLIENT_WRITER_BATCH_TIMEOUT
